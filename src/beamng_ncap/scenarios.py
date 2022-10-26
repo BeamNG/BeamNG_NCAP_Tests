@@ -249,14 +249,13 @@ class CCScenario(NCAPScenario):
             vut_speed = observation['vut']['electrics']['wheelspeed']
             gvt_speed = observation['gvt']['electrics']['wheelspeed']
 
-    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):  # TODO
+    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
         """
         Checks whether both cars have reached the desired speed.
         Notes:
             See [1], page 20, section 8.4.2
         """
-        vut = vut_speed >= self._vut_speed
-        vut = vut and vut_speed <= self._vut_speed + 1/3.6
+        vut = np.isclose(vut_speed, self._vut_speed, atol=1/3.6)
         gvt = np.isclose(gvt_speed, self._gvt_speed, atol=1/3.6)
 
         return vut and gvt
@@ -529,7 +528,7 @@ class CCRB(CCRScenario):
             self.gvt.ai_set_mode('disabled')
             self.vut.control(throttle=sensors['vut']['electrics']['throttle'])
 
-            if self._deceleration == 6.0:
+            if self._deceleration == -6:
                 self.gvt.control(throttle=0, brake=0.35)
             else:
                 self.gvt.control(throttle=0, brake=0.07)
