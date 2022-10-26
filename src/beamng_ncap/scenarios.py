@@ -313,6 +313,8 @@ class CCRScenario(CCScenario):
         """
         Loads the Scenario.
         """
+        self.bng.switch_vehicle(self.vut)
+
         self._teleport_vehicle(self.gvt, self._gvt_position,
                                self._gvt_rotation)
         self._teleport_vut()
@@ -334,7 +336,6 @@ class CCRScenario(CCScenario):
         while running:
             self.step(10)
             actual_distance = self._get_distance()
-            print(actual_distance)
 
             if actual_distance >= prev_distance:
                 counting = True
