@@ -326,8 +326,28 @@ class CCRScenario(CCScenario):
 
         self._accelerate_cars()
 
-        dist_diff = self._get_distance() - self._distance
+        running = True
+        countdown = 20
+        counting = False
+        prev_distance = self._get_distance()
 
+        while running:
+            self.step(10)
+            actual_distance = self._get_distance()
+            print(actual_distance)
+
+            if actual_distance >= prev_distance:
+                counting = True
+
+            if counting:
+                countdown -= 1
+                running = False if not countdown else True
+
+            prev_distance = actual_distance    
+
+        '''
+        dist_diff = self._get_distance() - self._distance
+        
         if not np.isclose(dist_diff, 0, atol=0.5):
             vut_bbox = self.vut.get_bbox()
             vut_cfg_a = np.array(vut_bbox['front_bottom_left'])
@@ -358,7 +378,7 @@ class CCRScenario(CCScenario):
             offset = position - vut_cf
             offset[2] = 0  # Ignore z coordinate
             self.vut.teleport(list(position + offset), reset=False)
-
+        '''
         return self._observe()
 
     def _get_distance(self):
