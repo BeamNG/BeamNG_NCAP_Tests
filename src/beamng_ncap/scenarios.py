@@ -251,7 +251,7 @@ class CCScenario(NCAPScenario):
             vut_speed = observation['vut']['electrics']['wheelspeed']
             gvt_speed = observation['gvt']['electrics']['wheelspeed']
 
-    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
+    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float): # TODO check the reference
         """
         Checks whether both cars have reached the desired speed.
         Notes:
@@ -328,38 +328,7 @@ class CCRScenario(CCScenario):
             self.gvt.ai_set_speed(self._gvt_speed_ai, mode='set')
             self.gvt.ai_set_waypoint(self._gvt_waypoint)
 
-        self._accelerate_cars()
-
-        running = True
-        countdown = 20
-        counting = False
-        prev_distance = self._get_distance()
-
-        pid = PID(1, 1, 0)
-        controller = SafeDistanceControl(1, pid)
-
-        while running:
-            self.step(10)
-
-            observation = self._observe()
-            vut_speed = observation['vut']['electrics']['wheelspeed']
-            controller.get_target_distance(vut_speed)
-            actual_distance = self._get_distance()
-            brake_intensity = controller.actuation(actual_distance, 0.1)
-
-            if brake_intensity > 0:
-                self.vut.ai_set_mode('disabled')
-                self.vut.control(brake=brake_intensity)
-
-            if actual_distance >= prev_distance: # starts countdown to end the simulation
-                counting = True
-
-            if counting:
-                countdown -= 1
-                running = False if not countdown else True
-
-            prev_distance = actual_distance    
-
+        self._accelerate_cars()  
         '''
         dist_diff = self._get_distance() - self._distance
         
@@ -395,6 +364,39 @@ class CCRScenario(CCScenario):
             self.vut.teleport(list(position + offset), reset=False)
         '''
         return self._observe()
+
+    def perform(self):
+        '''
+        Perform the test
+        '''
+        running = True
+        countdown = 20
+        counting = False
+        prev_distance = self._get_distance()
+
+        controller = self._get_controller()
+
+        while running:
+            self.step(10)
+
+            steering, throttle, brake = self._actuate_controller(controller)
+
+            if any([steering, throttle, brake]):
+                self.vut.ai_set_mode('disabled')
+                self.vut.control(steering=steering, throttle=throttle, brake=brake)
+
+            actual_distance = self._get_distance()
+            
+            if actual_distance >= prev_distance: # starts countdown to end the simulation
+                counting = True
+
+            if counting:
+                countdown -= 1
+                running = False if not countdown else True
+
+            prev_distance = actual_distance 
+
+        return self._observe() 
 
     def _get_distance(self):
         """
@@ -475,6 +477,26 @@ class CCRScenario(CCScenario):
         offset[2] = 0  # Ignore z coordinate
 
         self.vut.teleport(list(position + offset), self._vut_rotation)
+
+    def _get_controller(self): # TODO move the choice of the controller in the main script
+        '''
+        Define the controller used to perform the test
+        '''
+        pid = PID(0.2, 0.01, 0)
+        controller = SafeDistanceControl(1, pid)
+
+        return controller
+
+    def _actuate_controller(self, controller): # TODO multidispatch to actuate different controllers
+        observation = self._observe()
+        vut_speed = observation['vut']['electrics']['wheelspeed']
+        controller.get_target_distance(vut_speed)
+        actual_distance = self._get_distance()
+        brake = controller.actuation(actual_distance, 0.1)
+        throttle = 0
+        steering = 0
+
+        return steering, throttle, brake
 
 
 class CCRS(CCRScenario):
