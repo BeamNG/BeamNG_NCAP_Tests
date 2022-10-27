@@ -14,11 +14,10 @@ if __name__ == '__main__':
     beamng.start_scenario()
 
     print('Car-to-Car Rear stationary scenario')
-    overlap = 50  # -75, -50, 50, 75 or 100 %
+    overlap = 100  # -75, -50, 50, 75 or 100 %
     vut_speed = 50  # 10, 15, 20, 25, 30, 35, 40, 45 or 50 km/h
     test = CCRM(beamng, vut_speed, overlap=100)
     # Add custom sensors here (electrics, damage & timer are already attached)
     # test.vut.attach_sensor(...)
     sensors = test.load()
-
-    input('Press enter to continue...')
+    sensors = test.perform()
