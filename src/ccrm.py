@@ -13,7 +13,7 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
-    print('Car-to-Car Rear stationary scenario')
+    print('Car-to-Car Rear moving scenario')
     overlap = 100  # -75, -50, 50, 75 or 100 %
     vut_speed = 50  # 10, 15, 20, 25, 30, 35, 40, 45 or 50 km/h
     test = CCRM(beamng, vut_speed, overlap=100)
