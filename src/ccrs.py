@@ -21,4 +21,11 @@ if __name__ == '__main__':
     # Add custom sensors here (electrics, damage & timer are already attached)
     # test.vut.attach_sensor(...)
     sensors = test.load()
-    sensors = test.perform()
+    test_state = test.perform()
+
+    if test_state == 1:
+        print('Test passed successfully')
+    elif test_state == -1:
+        print('Test failed')
+    else: 
+        print('No terminal state reached') 
