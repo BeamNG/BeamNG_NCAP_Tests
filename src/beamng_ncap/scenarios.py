@@ -20,6 +20,8 @@ import numpy as np
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
+from .controllers import PID, SafeDistanceControl
+
 Pos = Tuple[float, float, float]
 Quat = Tuple[float, float, float, float]
 
@@ -333,11 +335,23 @@ class CCRScenario(CCScenario):
         counting = False
         prev_distance = self._get_distance()
 
+        pid = PID(1, 1, 0)
+        controller = SafeDistanceControl(1, pid)
+
         while running:
             self.step(10)
-            actual_distance = self._get_distance()
 
-            if actual_distance >= prev_distance:
+            observation = self._observe()
+            vut_speed = observation['vut']['electrics']['wheelspeed']
+            controller.get_target_distance(vut_speed)
+            actual_distance = self._get_distance()
+            brake_intensity = controller.actuation(actual_distance, 0.1)
+
+            if brake_intensity > 0:
+                self.vut.ai_set_mode('disabled')
+                self.vut.control(brake=brake_intensity)
+
+            if actual_distance >= prev_distance: # starts countdown to end the simulation
                 counting = True
 
             if counting:
@@ -503,6 +517,20 @@ class CCRM(CCRScenario):
 
         distance = vut_speed / 3.6 * 4 - 20 / 3.6 * 4
         super(CCRM, self).__init__(bng, vut_speed, 20, distance, overlap)
+
+    def step(self, steps):
+        """
+        Advances the scenario the given amount of steps.
+        Args:
+            steps (int): The amount of steps to simulate.
+        Returns:
+            A Dictionary with the sensor data from the VUT and GVT.
+        """
+        self.bng.step(steps)
+
+        observation = self._observe()
+
+        return observation
 
 
 class CCRB(CCRScenario):
