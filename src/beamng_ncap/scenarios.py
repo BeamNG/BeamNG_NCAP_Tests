@@ -283,7 +283,7 @@ class CCScenario(NCAPScenario):
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if vut_speed == 0 or vut_speed < gvt_speed:
+        if np.isclose(vut_speed, 0, atol=1e-3) or vut_speed < gvt_speed:
             return 1
 
         return 0
@@ -365,18 +365,17 @@ class CCRScenario(CCScenario):
         '''
         return self._observe()
 
-    def perform(self):
+    def perform(self) -> int:
         '''
-        Perform the test
+        Perform the test stopping it according to [1] section 8.4.3 pag 21
         '''
-        running = True
-        countdown = 20
-        counting = False
-        prev_distance = self._get_distance()
+        exit_condition1 = False
+        exit_condition2 = False
+        exit_condition3 = False
 
         controller = self._get_controller()
 
-        while running:
+        while not any([exit_condition1, exit_condition2, exit_condition3]):
             self.step(10)
 
             steering, throttle, brake = self._actuate_controller(controller)
@@ -385,18 +384,21 @@ class CCRScenario(CCScenario):
                 self.vut.ai_set_mode('disabled')
                 self.vut.control(steering=steering, throttle=throttle, brake=brake)
 
-            actual_distance = self._get_distance()
-            
-            if actual_distance >= prev_distance: # starts countdown to end the simulation
-                counting = True
+            sensors = self._observe()
 
-            if counting:
-                countdown -= 1
-                running = False if not countdown else True
+            vut_dmg = sensors['vut']['damage']['damage']
+            vut_speed = sensors['vut']['electrics']['wheelspeed']
+            gvt_dmg = sensors['gvt']['damage']['damage']
+            gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-            prev_distance = actual_distance 
+            if np.isclose(vut_speed, 0, atol=1e-3):
+                exit_condition1 = True
+            elif vut_speed < gvt_speed:
+                exit_condition2 = True
+            elif vut_dmg or gvt_dmg:
+                exit_condition3
 
-        return self._observe() 
+        return self.get_state(self._observe()) 
 
     def _get_distance(self):
         """
@@ -482,7 +484,7 @@ class CCRScenario(CCScenario):
         '''
         Define the controller used to perform the test
         '''
-        pid = PID(0.2, 0.01, 0)
+        pid = PID(0.5, 0.01, 0)
         controller = SafeDistanceControl(1, pid)
 
         return controller
