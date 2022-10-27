@@ -428,14 +428,14 @@ class CCRScenario(CCScenario):
         self.bng.step(steps)
 
         observation = self._observe()
-
+        '''
         if self.get_state(observation) != 0:
             self.vut.ai_set_mode('disabled')
             self.vut.control(throttle=0)  # For CCRB
 
             if self._gvt_speed > 0:
                 self.gvt.ai_set_mode('disabled')
-
+        '''
         return observation
 
     def _teleport_vut(self):
@@ -539,20 +539,6 @@ class CCRM(CCRScenario):
 
         distance = vut_speed / 3.6 * 4 - 20 / 3.6 * 4
         super(CCRM, self).__init__(bng, vut_speed, 20, distance, overlap)
-
-    def step(self, steps):
-        """
-        Advances the scenario the given amount of steps.
-        Args:
-            steps (int): The amount of steps to simulate.
-        Returns:
-            A Dictionary with the sensor data from the VUT and GVT.
-        """
-        self.bng.step(steps)
-
-        observation = self._observe()
-
-        return observation
 
 
 class CCRB(CCRScenario):
