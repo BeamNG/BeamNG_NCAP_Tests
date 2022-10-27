@@ -36,6 +36,4 @@ class SafeDistanceControl:
         elif brake < 0:
             brake = 0
 
-        print(brake)
-
         return brake
