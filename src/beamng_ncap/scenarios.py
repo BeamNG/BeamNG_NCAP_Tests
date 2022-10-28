@@ -452,7 +452,7 @@ class CCRScenario(CCScenario):
         '''
         Define the controller used to perform the test
         '''
-        pid = PID(0.5, 0.01, 0)
+        pid = PID(0.5, 0, 0)
         controller = SafeDistanceControl(1, pid)
 
         return controller
@@ -536,8 +536,10 @@ class CCRB(CCRScenario):
         assert distance in [12, 40]
 
         super(CCRB, self).__init__(bng, 50, 50, distance, overlap)
-        self._deceleration = deceleration
+        self._deceleration = - deceleration
         self._decelerating = False
+        self._stationary = False
+        self._gvt_controller = PID(0.2, 0.5, 0)
 
     def reset(self):
         """
@@ -554,19 +556,26 @@ class CCRB(CCRScenario):
         Returns:
             A Dictionary with the sensor data from the VUT and GVT.
         """
+
         if not self._decelerating:
-            # TODO use a PI(D) controller to decelerate the vehicle
-            sensors = self._observe()
-            self.vut.ai_set_mode('disabled')
             self.gvt.ai_set_mode('disabled')
-            self.vut.control(throttle=sensors['vut']['electrics']['throttle'])
-
-            if self._deceleration == -6:
-                self.gvt.control(throttle=0, brake=0.35)
-            else:
-                self.gvt.control(throttle=0, brake=0.07)
-
             self._decelerating = True
+
+        if self._decelerating and not self._stationary:
+            sensors = self._observe()
+            gvt_acc = sensors['gvt']['electrics']['accYSmooth']
+            error = self._deceleration - gvt_acc
+            brake = self._gvt_controller.actuation(error, 0.1)
+            brake = 1 if brake > 1 else brake
+            brake = 0 if brake < 0 else brake
+            self.gvt.control(throttle=0, brake=brake)
+            gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+
+            if np.isclose(gvt_speed, 0, atol=1e-1):
+                self.gvt.control(throttle=0, brake=0)
+                self._stationary = True
+
+            print(gvt_acc) # TODO print mean acc and std while braking
 
         return super().step(steps)
 
