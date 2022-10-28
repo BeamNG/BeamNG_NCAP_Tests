@@ -283,7 +283,7 @@ class CCScenario(NCAPScenario):
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if np.isclose(vut_speed, 0, atol=1e-3) or vut_speed < gvt_speed:
+        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed: # TODO check if it's possible to compare strictly to 0
             return 1
 
         return 0
@@ -329,45 +329,13 @@ class CCRScenario(CCScenario):
             self.gvt.ai_set_waypoint(self._gvt_waypoint)
 
         self._accelerate_cars()  
-        '''
-        dist_diff = self._get_distance() - self._distance
-        
-        if not np.isclose(dist_diff, 0, atol=0.5):
-            vut_bbox = self.vut.get_bbox()
-            vut_cfg_a = np.array(vut_bbox['front_bottom_left'])
-            vut_cfg_b = np.array(vut_bbox['front_bottom_right'])
-            vut_cf = (vut_cfg_a + vut_cfg_b) / 2
+        self._fix_boundary_conditions()
 
-            vut_cr_a = np.array(vut_bbox['rear_bottom_left'])
-            vut_cr_b = np.array(vut_bbox['rear_bottom_right'])
-            vut_cr = (vut_cr_a + vut_cr_b) / 2
-
-            if dist_diff < 0:
-                dv = vut_cr - vut_cf
-            else:
-                dv = vut_cf - vut_cr
-
-            dv /= np.linalg.norm(dv)
-
-            position = vut_cf + np.abs(dist_diff) * dv
-            position[2] = self.vut.state['pos'][2]
-
-            self.vut.teleport(list(position), reset=False)
-
-            # TODO Workaround for ref-nodes
-            vut_bbox = self.vut.get_bbox()
-            vut_cf_a = np.array(vut_bbox['front_bottom_left'])
-            vut_cf_b = np.array(vut_bbox['front_bottom_right'])
-            vut_cf = (vut_cf_a + vut_cf_b) / 2
-            offset = position - vut_cf
-            offset[2] = 0  # Ignore z coordinate
-            self.vut.teleport(list(position + offset), reset=False)
-        '''
         return self._observe()
 
-    def perform(self) -> int:
+    def execute(self) -> int:
         '''
-        Perform the test stopping it according to [1] section 8.4.3 pag 21
+        Execute the test stopping it according to [1] section 8.4.3 pag 21
         '''
         exit_condition1 = False
         exit_condition2 = False
@@ -391,7 +359,7 @@ class CCRScenario(CCScenario):
             gvt_dmg = sensors['gvt']['damage']['damage']
             gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-            if np.isclose(vut_speed, 0, atol=1e-3):
+            if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
                 exit_condition1 = True
             elif vut_speed < gvt_speed:
                 exit_condition2 = True
@@ -500,6 +468,12 @@ class CCRScenario(CCScenario):
 
         return steering, throttle, brake
 
+    def _fix_boundary_conditions(self):
+        '''
+        Fix the boundary conditions according to [1] section 8.4.2 pag 20
+        '''
+        pass
+
 
 class CCRS(CCRScenario):
     """
@@ -595,3 +569,32 @@ class CCRB(CCRScenario):
             self._decelerating = True
 
         return super().step(steps)
+
+    def _fix_boundary_conditions(self):
+        '''
+        Fix the relative distance between VUT and GVT according to [1] section 8.4.2 pag 20
+        '''
+
+        dist_diff = self._get_distance() - self._distance
+
+        if not np.isclose(dist_diff, 0, atol=0.5):
+            vut_bbox = self.vut.get_bbox()
+            vut_cfg_a = np.array(vut_bbox['front_bottom_left'])
+            vut_cfg_b = np.array(vut_bbox['front_bottom_right'])
+            vut_cf = (vut_cfg_a + vut_cfg_b) / 2
+
+            vut_cr_a = np.array(vut_bbox['rear_bottom_left'])
+            vut_cr_b = np.array(vut_bbox['rear_bottom_right'])
+            vut_cr = (vut_cr_a + vut_cr_b) / 2
+
+            if dist_diff < 0:
+                dv = vut_cr - vut_cf
+            else:
+                dv = vut_cf - vut_cr
+
+            dv /= np.linalg.norm(dv)
+
+            position = vut_cf + np.abs(dist_diff) * dv
+            position[2] = self.vut.state['pos'][2]
+
+            self.vut.teleport(list(position), reset=False)
