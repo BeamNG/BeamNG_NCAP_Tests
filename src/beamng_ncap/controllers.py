@@ -9,7 +9,7 @@ class PID:
         self.prev_error = 0
 
     def actuation(self, e: float, dt: float) -> float:
-        self.integral += (e - self.prev_error)*dt/2
+        self.integral += (e + self.prev_error)*dt/2
         derivative = (e - self.prev_error)/dt
         output = self.Kp*e + self.Ki*self.integral + self.Kd*derivative
         self.prev_error = e
@@ -31,9 +31,7 @@ class SafeDistanceControl:
         error = self.target_distance - actual_distance
         brake = self.pid.actuation(error, dt)
 
-        if brake > 1:
-            brake = 1
-        elif brake < 0:
-            brake = 0
+        brake = 1 if brake > 1 else brake
+        brake = 0 if brake < 0 else brake
 
         return brake
