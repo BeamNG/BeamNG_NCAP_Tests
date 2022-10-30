@@ -14,7 +14,7 @@ if __name__ == '__main__':
     beamng.start_scenario()
 
     print('Car-to-Car Rear braking scenario')
-    deceleration = -2 # -2, -6
+    deceleration = -6 # -2, -6
     distance = 40 # 12, 40
     overlap = 100  # -75, -50, 50, 75 or 100 %
     test = CCRB(beamng, deceleration, distance, overlap)
