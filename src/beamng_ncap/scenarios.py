@@ -181,7 +181,7 @@ class CCScenario(NCAPScenario):
         super().__init__(bng, vut_speed, vut_position, vut_rotation,
                          vut_waypoint)
 
-        self._vut_speed_ai = (vut_speed + 3.6) / 3.6
+        self._vut_speed_ai = (vut_speed + 3.6 + 1) / 3.6 # added a + 1 to actuali be able to achive a speed higher than the gvt a do not stop the test
         # + 3.6 ) / is a workaround for the ai to reach the given speed
         # TODO: investigate how to get the AI to do that without this hack
 
@@ -257,7 +257,7 @@ class CCScenario(NCAPScenario):
         Notes:
             See [1], page 20, section 8.4.2
         """
-        vut = np.isclose(vut_speed, self._vut_speed, atol=1/3.6)
+        vut = np.isclose(vut_speed, self._vut_speed+0.5/3.6, atol=0.5/3.6)
         gvt = np.isclose(gvt_speed, self._gvt_speed, atol=1/3.6)
 
         return vut and gvt
@@ -333,7 +333,7 @@ class CCRScenario(CCScenario):
 
         return self._observe()
 
-    def execute(self) -> int:
+    def execute(self, control_mode='user') -> int:
         '''
         Execute the test stopping it according to [1] section 8.4.3 pag 21
         '''
@@ -343,7 +343,7 @@ class CCRScenario(CCScenario):
 
         controller = self._get_controller()
 
-        while not any([exit_condition1, exit_condition2, exit_condition3]):
+        while not any([exit_condition1, exit_condition2, exit_condition3, control_mode == 'user']):
             self.step(10)
 
             steering, throttle, brake = self._actuate_controller(controller)
@@ -365,6 +365,29 @@ class CCRScenario(CCScenario):
                 exit_condition2 = True
             elif vut_dmg or gvt_dmg:
                 exit_condition3
+
+        if control_mode == 'user':
+            self.bng.display_gui_message('Take control of the car')
+            self.bng.resume()
+            self.vut.ai_set_mode('disabled')
+
+            while not any([exit_condition1, exit_condition2, exit_condition3]):
+                sensors = self._observe()
+
+                vut_dmg = sensors['vut']['damage']['damage']
+                vut_speed = sensors['vut']['electrics']['wheelspeed'] # TODO it may be better to use another speed instead the one of the wheel
+                gvt_dmg = sensors['gvt']['damage']['damage']
+                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+
+                if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
+                    exit_condition1 = True
+                    self.bng.pause()
+                elif vut_speed < gvt_speed:
+                    exit_condition2 = True
+                    self.bng.pause()
+                elif vut_dmg or gvt_dmg:
+                    exit_condition3 = True
+                    self.bng.pause()
 
         return self.get_state(self._observe()) 
 
@@ -575,7 +598,7 @@ class CCRB(CCRScenario):
                 self.gvt.control(throttle=0, brake=0)
                 self._stationary = True
 
-            print(gvt_acc) # TODO print mean acc and std while braking
+            #print(gvt_acc) # TODO print mean acc and std while braking
 
         return super().step(steps)
 
