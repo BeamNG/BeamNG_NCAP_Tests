@@ -336,37 +336,23 @@ class CCRScenario(CCScenario):
     def execute(self, control_mode='user') -> int:
         '''
         Execute the test stopping it according to [1] section 8.4.3 pag 21
+
+        Args: 
+            control_mode (string): the control mode to use during the test execution
+                * ``user``: The user has to control the vehicle during the test execution
+                * ``safe_distance``: The test is performed using a SafeDistanceControl
+        Returns:
+            terminal state:
+                * 1: Test passed successfully
+                * -1: Test failed
+                * 0: No terminal state reached
         '''
         exit_condition1 = False
         exit_condition2 = False
         exit_condition3 = False
 
-        controller = self._get_controller()
-
-        while not any([exit_condition1, exit_condition2, exit_condition3, control_mode == 'user']):
-            self.step(10)
-
-            steering, throttle, brake = self._actuate_controller(controller)
-
-            if any([steering, throttle, brake]):
-                self.vut.ai_set_mode('disabled')
-                self.vut.control(steering=steering, throttle=throttle, brake=brake)
-
-            sensors = self._observe()
-
-            vut_dmg = sensors['vut']['damage']['damage']
-            vut_speed = sensors['vut']['electrics']['wheelspeed']
-            gvt_dmg = sensors['gvt']['damage']['damage']
-            gvt_speed = sensors['gvt']['electrics']['wheelspeed']
-
-            if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
-                exit_condition1 = True
-            elif vut_speed < gvt_speed:
-                exit_condition2 = True
-            elif vut_dmg or gvt_dmg:
-                exit_condition3
-
         if control_mode == 'user':
+            self.bng.display_gui_message('Boundary conditions reached')
             self.bng.display_gui_message('Take control of the car')
             self.bng.resume()
             self.vut.ai_set_mode('disabled')
@@ -388,6 +374,33 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3 = True
                     self.bng.pause()
+        else:
+            controllers_dict = {'safe_distance':self._get_safe_distance_controller}
+            actuation_dict = {'safe_distance':self._actuate_safe_distance_controller}
+            controller = controllers_dict[control_mode]()
+
+            while not any([exit_condition1, exit_condition2, exit_condition3]):
+                self.step(10)
+
+                steering, throttle, brake = actuation_dict[control_mode](controller)
+
+                if any([steering, throttle, brake]):
+                    self.vut.ai_set_mode('disabled')
+                    self.vut.control(steering=steering, throttle=throttle, brake=brake)
+
+                sensors = self._observe()
+
+                vut_dmg = sensors['vut']['damage']['damage']
+                vut_speed = sensors['vut']['electrics']['wheelspeed']
+                gvt_dmg = sensors['gvt']['damage']['damage']
+                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+
+                if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
+                    exit_condition1 = True
+                elif vut_speed < gvt_speed:
+                    exit_condition2 = True
+                elif vut_dmg or gvt_dmg:
+                    exit_condition3
 
         return self.get_state(self._observe()) 
 
@@ -419,16 +432,8 @@ class CCRScenario(CCScenario):
             A Dictionary with the sensor data from the VUT and GVT.
         """
         self.bng.step(steps)
-
         observation = self._observe()
-        '''
-        if self.get_state(observation) != 0:
-            self.vut.ai_set_mode('disabled')
-            self.vut.control(throttle=0)  # For CCRB
 
-            if self._gvt_speed > 0:
-                self.gvt.ai_set_mode('disabled')
-        '''
         return observation
 
     def _teleport_vut(self):
@@ -471,16 +476,25 @@ class CCRScenario(CCScenario):
 
         self.vut.teleport(list(position + offset), self._vut_rotation)
 
-    def _get_controller(self): # TODO move the choice of the controller in the main script
+    def _get_safe_distance_controller(self):
         '''
-        Define the controller used to perform the test
+        Define the SafeDistanceControl used to perform the test
+        Returns:
+            instance of the contoller SafeDistanceControl
         '''
         pid = PID(0.5, 0, 0)
-        controller = SafeDistanceControl(1, pid)
+        controller = SafeDistanceControl(0.8, pid)
 
         return controller
 
-    def _actuate_controller(self, controller): # TODO multidispatch to actuate different controllers
+    def _actuate_safe_distance_controller(self, controller: SafeDistanceControl) -> tuple:
+        '''
+        Actuation routing for the SafeDistanceControl.
+        Args:
+            controller (SafeDistanceControl): instance of the controller
+        Returns:
+            tuple containing sterring, throttle and brake
+        '''
         observation = self._observe()
         vut_speed = observation['vut']['electrics']['wheelspeed']
         controller.get_target_distance(vut_speed)
