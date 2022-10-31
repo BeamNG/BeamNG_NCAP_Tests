@@ -16,6 +16,7 @@ References:
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
+import time
 import numpy as np
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
@@ -352,9 +353,7 @@ class CCRScenario(CCScenario):
         exit_condition3 = False
 
         if control_mode == 'user':
-            self.bng.display_gui_message('Boundary conditions reached')
-            self.bng.display_gui_message('Take control of the car')
-            self.bng.resume()
+            self._countdown(5)
             self.vut.ai_set_mode('disabled')
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
@@ -511,6 +510,13 @@ class CCRScenario(CCScenario):
         '''
         pass
 
+    def _countdown(self, seconds: int):
+        self.bng.pause()
+        for s in range(seconds, 0, -1):
+            self.bng.display_gui_message(f'Get ready! You will get control in {s} seconds.')
+            time.sleep(1)
+        self.bng.display_gui_message(f'Go!')
+        self.bng.resume()
 
 class CCRS(CCRScenario):
     """
