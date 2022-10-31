@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # Add custom sensors here (electrics, damage & timer are already attached)
     # test.vut.attach_sensor(...)
     sensors = test.load()
-    test_state = test.execute()
+    test_state = test.execute('user')
 
     if test_state == 1:
         print('Test passed successfully')

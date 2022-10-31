@@ -15,14 +15,14 @@ if __name__ == '__main__':
 
     print('Car-to-Car Rear braking scenario')
     deceleration = -6 # -2, -6
-    distance = 40 # 12, 40
+    distance = 12 # 12, 40
     overlap = 100  # -75, -50, 50, 75 or 100 %
     test = CCRB(beamng, deceleration, distance, overlap)
 
     # Add custom sensors here (electrics, damage & timer are already attached)
     # test.vut.attach_sensor(...)
     sensors = test.load()
-    test_state = test.execute()
+    test_state = test.execute('safe_distance')
 
     if test_state == 1:
         print('Test passed successfully')
