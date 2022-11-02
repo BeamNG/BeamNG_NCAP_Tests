@@ -14,8 +14,8 @@ if __name__ == '__main__':
     beamng.start_scenario()
 
     print('Car-to-Car Rear braking scenario')
-    deceleration = -6 # -2, -6
-    distance = 12 # 12, 40
+    deceleration = -6  # -2, -6
+    distance = 12  # 12, 40
     overlap = 100  # -75, -50, 50, 75 or 100 %
     test = CCRB(beamng, deceleration, distance, overlap)
 
@@ -26,5 +26,5 @@ if __name__ == '__main__':
         print('Test passed successfully')
     elif test_state == -1:
         print('Test failed')
-    else: 
-        print('No terminal state reached') 
+    else:
+        print('No terminal state reached')

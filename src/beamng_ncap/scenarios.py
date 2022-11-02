@@ -182,8 +182,9 @@ class CCScenario(NCAPScenario):
         super().__init__(bng, vut_speed, vut_position, vut_rotation,
                          vut_waypoint)
 
-        self._vut_speed_ai = (vut_speed + 3.6 + 1) / 3.6 # added a + 1 to reach a speed higher than the gvt a do not stop the ccrb test
+        self._vut_speed_ai = (vut_speed + 3.6 + 1)/3.6
         # + 3.6 ) / is a workaround for the ai to reach the given speed
+        # added a + 1 to reach a speed higher than the gvt a do not stop the ccrb test
         # TODO: investigate how to get the AI to do that without this hack
 
         self.gvt: Vehicle = bng.scenario.get_vehicle('gvt')
@@ -252,7 +253,7 @@ class CCScenario(NCAPScenario):
             vut_speed = observation['vut']['electrics']['wheelspeed']
             gvt_speed = observation['gvt']['electrics']['wheelspeed']
 
-    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float): # TODO check the reference
+    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):  # TODO check the reference
         """
         Checks whether both cars have reached the desired speed.
         Notes:
@@ -284,7 +285,7 @@ class CCScenario(NCAPScenario):
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed: # TODO check if it's possible to compare strictly to 0
+        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed:  # TODO check if it's possible to compare strictly to 0
             return 1
 
         return 0
@@ -329,7 +330,7 @@ class CCRScenario(CCScenario):
             self.gvt.ai_set_speed(self._gvt_speed_ai, mode='set')
             self.gvt.ai_set_waypoint(self._gvt_waypoint)
 
-        self._accelerate_cars()  
+        self._accelerate_cars()
         self._fix_boundary_conditions()
 
         return self._observe()
@@ -337,7 +338,7 @@ class CCRScenario(CCScenario):
     def execute(self, control_mode='user') -> int:
         '''
         Execute the test stopping it according to [1] section 8.4.3 pag 21
-        Args: 
+        Args:
             control_mode (string): the control mode to use during the test execution
                 * ``user``: The user has to control the vehicle during the test execution
                 * ``trial``: The test is performed using TrialControl
@@ -351,7 +352,7 @@ class CCRScenario(CCScenario):
         exit_condition2 = False
         exit_condition3 = False
 
-        if control_mode == 'user': # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
             self._countdown(5)
             self.vut.ai_set_mode('disabled')
 
@@ -359,11 +360,11 @@ class CCRScenario(CCScenario):
                 sensors = self._observe()
 
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed'] # TODO it may be better to use another speed instead the one of the wheel
+                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
                 gvt_dmg = sensors['gvt']['damage']['damage']
                 gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
+                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_speed < gvt_speed:
@@ -372,9 +373,10 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3 = True
                     self.bng.pause()
+
         else:
-            controllers_dict = {'trial':self._get_trial_controller}
-            actuation_dict = {'trial':self._actuate_trial_controller}
+            controllers_dict = {'trial': self._get_trial_controller}
+            actuation_dict = {'trial': self._actuate_trial_controller}
             controller = controllers_dict[control_mode]()
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
@@ -393,14 +395,14 @@ class CCRScenario(CCScenario):
                 gvt_dmg = sensors['gvt']['damage']['damage']
                 gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2): # TODO check if it's possible to compare strictly to 0
+                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
                     exit_condition1 = True
                 elif vut_speed < gvt_speed:
                     exit_condition2 = True
                 elif vut_dmg or gvt_dmg:
                     exit_condition3
 
-        return self.get_state(self._observe()) 
+        return self.get_state(self._observe())
 
     def _get_distance(self):
         """
@@ -517,6 +519,7 @@ class CCRScenario(CCScenario):
         self.bng.display_gui_message(f'Go!')
         self.bng.resume()
 
+
 class CCRS(CCRScenario):
     """
     Implementation of the Car-to-Car Rear stationary scenario.
@@ -617,7 +620,7 @@ class CCRB(CCRScenario):
                 self.gvt.control(throttle=0, brake=0)
                 self._stationary = True
 
-            #print(gvt_acc) # TODO print mean acc and std while braking
+            # print(gvt_acc) # TODO print mean acc and std while braking
 
         return super().step(steps)
 

@@ -26,5 +26,5 @@ if __name__ == '__main__':
         print('Test passed successfully')
     elif test_state == -1:
         print('Test failed')
-    else: 
-        print('No terminal state reached') 
+    else:
+        print('No terminal state reached')
