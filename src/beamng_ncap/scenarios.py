@@ -21,7 +21,7 @@ import numpy as np
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
-from .controllers import PID, SafeDistanceControl
+from .controllers import PID, TrialControl
 
 Pos = Tuple[float, float, float]
 Quat = Tuple[float, float, float, float]
@@ -182,7 +182,7 @@ class CCScenario(NCAPScenario):
         super().__init__(bng, vut_speed, vut_position, vut_rotation,
                          vut_waypoint)
 
-        self._vut_speed_ai = (vut_speed + 3.6 + 1) / 3.6 # added a + 1 to actuali be able to achive a speed higher than the gvt a do not stop the test
+        self._vut_speed_ai = (vut_speed + 3.6 + 1) / 3.6 # added a + 1 to reach a speed higher than the gvt a do not stop the ccrb test
         # + 3.6 ) / is a workaround for the ai to reach the given speed
         # TODO: investigate how to get the AI to do that without this hack
 
@@ -337,11 +337,10 @@ class CCRScenario(CCScenario):
     def execute(self, control_mode='user') -> int:
         '''
         Execute the test stopping it according to [1] section 8.4.3 pag 21
-
         Args: 
             control_mode (string): the control mode to use during the test execution
                 * ``user``: The user has to control the vehicle during the test execution
-                * ``safe_distance``: The test is performed using a SafeDistanceControl
+                * ``trial``: The test is performed using TrialControl
         Returns:
             terminal state:
                 * 1: Test passed successfully
@@ -352,7 +351,7 @@ class CCRScenario(CCScenario):
         exit_condition2 = False
         exit_condition3 = False
 
-        if control_mode == 'user':
+        if control_mode == 'user': # TODO sometimes no terminal state occurs also if the vut speed goes to zero
             self._countdown(5)
             self.vut.ai_set_mode('disabled')
 
@@ -374,8 +373,8 @@ class CCRScenario(CCScenario):
                     exit_condition3 = True
                     self.bng.pause()
         else:
-            controllers_dict = {'safe_distance':self._get_safe_distance_controller}
-            actuation_dict = {'safe_distance':self._actuate_safe_distance_controller}
+            controllers_dict = {'trial':self._get_trial_controller}
+            actuation_dict = {'trial':self._actuate_trial_controller}
             controller = controllers_dict[control_mode]()
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
@@ -475,22 +474,22 @@ class CCRScenario(CCScenario):
 
         self.vut.teleport(list(position + offset), self._vut_rotation)
 
-    def _get_safe_distance_controller(self):
+    def _get_trial_controller(self):
         '''
-        Define the SafeDistanceControl used to perform the test
+        Define the TrialControl used to perform the test
         Returns:
-            instance of the contoller SafeDistanceControl
+            instance of the contoller TrialControl
         '''
         pid = PID(0.5, 0, 0)
-        controller = SafeDistanceControl(0.8, pid)
+        controller = TrialControl(0.8, pid)
 
         return controller
 
-    def _actuate_safe_distance_controller(self, controller: SafeDistanceControl) -> tuple:
+    def _actuate_trial_controller(self, controller: TrialControl) -> tuple:
         '''
-        Actuation routing for the SafeDistanceControl.
+        Actuation routing for the TrialControl.
         Args:
-            controller (SafeDistanceControl): instance of the controller
+            controller (TrialControl): instance of the controller
         Returns:
             tuple containing sterring, throttle and brake
         '''

@@ -17,10 +17,8 @@ if __name__ == '__main__':
     overlap = 100  # -75, -50, 50, 75 or 100 %
     vut_speed = 80  # 10, 15, 20, 25, 30, 35, 40, 45 or 50 km/h
     test = CCRM(beamng, vut_speed, overlap=100)
-    # Add custom sensors here (electrics, damage & timer are already attached)
-    # test.vut.attach_sensor(...)
     sensors = test.load()
-    test_state = test.execute('safe_distance')
+    test_state = test.execute('trial')
 
     if test_state == 1:
         print('Test passed successfully')
