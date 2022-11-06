@@ -21,7 +21,7 @@ import numpy as np
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
-from .controllers import PID, TrialControl
+from .controllers import PID, TrialControl, SpeedControl
 
 Pos = Tuple[float, float, float]
 Quat = Tuple[float, float, float, float]
@@ -71,11 +71,11 @@ def generate_scenario(vut_model: str, gvt_model: str) -> Scenario:
     scenario.add_object(ccrs_waypoint)
 
     ccftab_waypoint = ScenarioObject('ccftab_waypoint_gvt', None, 'BeamNGWaypoint',
-                                     (498.25, -1000, 0.23), (1, 1, 1), (0, 0, 0, 1))
+                                     (500, 1000, 0.23), (1, 1, 1), (0, 0, 1, 0))
     scenario.add_object(ccftab_waypoint)
 
     ccftab_waypoint2 = ScenarioObject('ccftab_waypoint_vut', None, 'BeamNGWaypoint',
-                                      (500, 1000, 0.23), (1, 1, 1), (0, 0, 0, 1))  # 501.75
+                                      (500, -1000, 0.23), (1, 1, 1), (0, 0, 0, 1))
     scenario.add_object(ccftab_waypoint2)
 
     vut = Vehicle('vut', model=vut_model, licence='VUT')
@@ -652,3 +652,72 @@ class CCRB(CCRScenario):
             position[2] = self.vut.state['pos'][2]
 
             self.vut.teleport(list(position), reset=False)
+
+
+class CCFScenario(CCScenario):
+    """
+    Base class for the car to car front scenarios.
+    """
+
+    def __init__(self, bng: BeamNGpy, vut_speed: float, gvt_speed: float):
+        """
+        Args:
+            bng (:class:`.BeamNGpy`): BeamNGpy instance.
+            vut_speed (float): Speed of the VUT in km/h.
+            gvt_speed (float): Speed of the GVT in km/h.
+            distance (float): Distance between the Cars in m.
+        """
+        super().__init__(bng, vut_speed, (500 - 1.75, 150, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
+                         gvt_speed, (500 + 1.75, -400, 0.21), (0, 0, 1, 0),
+                         'ccftab_waypoint_gvt')
+
+    def _accelerate_cars(self):
+        vut_speed_pid = PID(0.1, 0.01, 0)
+        vut_speed_controller = SpeedControl(self._vut_speed, vut_speed_pid)
+        gvt_speed_pid = PID(0.1, 0.01, 0)
+        gvt_speed_controller = SpeedControl(self._gvt_speed, gvt_speed_pid)
+
+        self.vut.set_shift_mode('arcade')
+        self.gvt.set_shift_mode('arcade')
+
+        sensors = self._observe()
+        vut_speed = sensors['vut']['electrics']['wheelspeed']
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+
+        while not self._cars_reached_speed(vut_speed, gvt_speed):
+            self.step(10)
+            sensors = self._observe()
+            vut_speed = sensors['vut']['electrics']['wheelspeed']
+            gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+            (vut_throttle, vut_brake) = vut_speed_controller.actuation(vut_speed, 0.1)
+            (gvt_throttle, gvt_brake) = gvt_speed_controller.actuation(gvt_speed, 0.1)
+            self.vut.control(throttle=vut_throttle, brake=vut_brake)
+            self.gvt.control(throttle=gvt_throttle, brake=gvt_brake)
+
+    def load(self):
+        """
+        Loads the Scenario.
+        """
+        self._teleport_vehicle(self.gvt, self._gvt_position,
+                               self._gvt_rotation)
+        self._teleport_vehicle(self.vut, self._vut_position,
+                               self._vut_rotation)
+
+        self.bng.switch_vehicle(self.vut)
+
+        self._accelerate_cars()
+
+        return self._observe()
+
+    def step(self, steps):
+        """
+        Advances the scenario the given amount of steps.
+        Args:
+            steps (int): The amount of steps to simulate.
+        Returns:
+            A Dictionary with the sensor data from the VUT and GVT.
+        """
+        self.bng.step(steps)
+        observation = self._observe()
+
+        return observation

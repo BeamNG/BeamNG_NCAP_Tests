@@ -71,3 +71,24 @@ class TrialControl:
         brake = 0 if brake < 0 else brake
 
         return brake
+
+
+class SpeedControl:
+    '''
+    '''
+
+    def __init__(self, target_speed: float, pid: PID):
+        self.target = target_speed
+        self.pid = pid
+
+    def actuation(self, actual_speed: float, dt: float) -> tuple:
+        error = self.target - actual_speed
+        output = self.pid.actuation(error, dt)
+
+        throttle = output if output > 0 else 0
+        brake = - output if output < 0 else 0
+
+        throttle = 1 if throttle > 1 else throttle
+        brake = 1 if brake > 1 else brake
+
+        return throttle, brake
