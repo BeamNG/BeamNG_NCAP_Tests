@@ -21,7 +21,7 @@ import numpy as np
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
-from .controllers import PID, TrialControl, SpeedControl
+from .controllers import PID, TrialControl
 
 Pos = Tuple[float, float, float]
 Quat = Tuple[float, float, float, float]
@@ -675,32 +675,15 @@ class CCFScenario(CCScenario):
         assert gvt_speed in [30, 45, 55]
 
     def _accelerate_cars(self):
-        vut_speed_pid = PID(0.1, 0.01, 0)
-        vut_speed_controller = SpeedControl(self._vut_speed, vut_speed_pid)
-        gvt_speed_pid = PID(0.1, 0.01, 0)
-        gvt_speed_controller = SpeedControl(self._gvt_speed, gvt_speed_pid)
+        vut_script = self._define_vut_trajectory()
+        gvt_script = self._define_gvt_trajectory()
+        self.vut.ai_set_script(vut_script)
+        self.gvt.ai_set_script(gvt_script)
 
-        self.vut.set_shift_mode('arcade')
-        self.gvt.set_shift_mode('arcade')
-
-        sensors = self._observe()
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
-
-        # while not self._cars_reached_speed(vut_speed, gvt_speed):
         while True:
-            self.step(10)
-            sensors = self._observe()
-            vut_speed = sensors['vut']['electrics']['wheelspeed']
-            gvt_speed = sensors['gvt']['electrics']['wheelspeed']
-            (vut_throttle, vut_brake) = vut_speed_controller.actuation(vut_speed, 0.1)
-            (gvt_throttle, gvt_brake) = gvt_speed_controller.actuation(gvt_speed, 0.1)
-            self.vut.control(throttle=vut_throttle, brake=vut_brake)
-            self.gvt.control(throttle=gvt_throttle, brake=gvt_brake)
+            self.bng.step(10)
 
-    def _define_vut_trajectory(self):
-        r1 = 1500
-
+    def _define_vut_trajectory(self, debug: bool=False) -> list:
         match self._vut_speed*3.6:
             case 10:
                 alpha = np.deg2rad(20.62)
@@ -716,7 +699,6 @@ class CCFScenario(CCScenario):
                 r2 = 14.75
 
         L = 2*alpha*r2
-
         x_clothoid = []
         y_clothoid = []
 
@@ -727,7 +709,6 @@ class CCFScenario(CCScenario):
         x_part2 = 2*r2*np.sin(beta/2)/np.sqrt(2)
         y_clothoid1 = - 1.75 + x_clothoid[-1] + y_clothoid[-1] + x_part2
         y_constant_radius = - 1.75 + y_clothoid[-1] + x_part2
-        y_clothoid2 = - 1.75 + y_clothoid[-1]
 
         script = []
         points = []
@@ -736,64 +717,122 @@ class CCFScenario(CCScenario):
         sphere_radii = []
         sphere_colors = []
 
-        yc = r2*np.sin(np.pi - beta/2)
-        xc = r2*np.cos(np.pi - beta/2)
         clothoid_index1 = 0
-        
-        for i in range(self._vut_position[1]):
-            if (150 - i) > y_clothoid1:
-                node = {'x': 498.25,
-                        'y': 150 - i,
+        constant_radius_index = 1
+        constant_radius_segment = 2*r2*np.sin(1/r2/2)
+        y = self._vut_position[1]
+        i = 0
+
+        while y >= - 1.75:
+            i += 1
+            t = i/self._vut_speed
+            if y >= y_clothoid1:
+                node = {'x': self._vut_position[0],
+                        'y': y,
                         'z': 0.21,
-                        't': i/self._vut_speed}
+                        't': t}
                 script.append(node)
                 points.append([node['x'], node['y'], node['z']])
-            elif (150 - i) <= y_clothoid1 and (150 - i) > y_constant_radius:
-                node = {'x': 498.25 + y_clothoid[clothoid_index1],
-                        'y': y_clothoid1 - x_clothoid[clothoid_index1],
+                y -= 1
+
+            elif y < y_clothoid1 and y > y_constant_radius:
+                if clothoid_index1 == 0:
+                    start_y = script[-1]['y']
+                delta_y = script[-1]['y'] - (start_y - x_clothoid[clothoid_index1])
+                y -= delta_y
+                node = {'x': self._vut_position[0] + y_clothoid[clothoid_index1],
+                        'y': start_y - x_clothoid[clothoid_index1],
                         'z': 0.21,
-                        't': i/self._vut_speed}
+                        't': t}
                 script.append(node)
                 points.append([node['x'], node['y'], node['z']])
                 clothoid_index1 += 1
-            elif (150 - i) <= y_constant_radius and (150 - i) > y_clothoid2:
-                node = {'x': 498.25 + y_clothoid[-1] - np.sqrt(r2**2 - (150 - i - y_constant_radius - yc)**2) - xc,
-                        'y': 150 - i,
+
+            elif y <= y_constant_radius:
+                gamma_k = np.pi/4 - beta/2 + 1/r2*constant_radius_index/2
+                delta_x = constant_radius_segment*np.sin(gamma_k)
+                delta_y = constant_radius_segment*np.cos(gamma_k)
+
+                node = {'x': script[-1]['x'] + delta_x,
+                        'y': script[-1]['y'] - delta_y,
                         'z': 0.21,
-                        't': i/100}
+                        't': t}
                 script.append(node)
                 points.append([node['x'], node['y'], node['z']])
+
+                constant_radius_index += 2
+                y -= delta_y
             
-            if i % 2 == 0:
-                sphere_coordinates.append([node['x'], node['y'], node['z']])
-                sphere_radii.append(np.abs(np.sin(np.radians(i))) * 0.25)
-                sphere_colors.append([np.sin(np.radians(i)), 0, 0, 0.8])
+            if y <= y_clothoid[-1] - 1.75:
+                start_x = script[-1]['x']
+                start_y = script[-1]['y']
+                for j in range(100):
+                    i += 1
+                    t = i/self._vut_speed
 
-        for j in range(100):
-            if j < x_clothoid[-1]:
-                node = {'x': 498.25 + y_clothoid[-1] + x_part2 + x_clothoid[-1] - x_clothoid[-j-1],
-                        'y': y_clothoid2 - y_clothoid[-1] + y_clothoid[-j-1],
-                        'z': 0.21,
-                        't': (i + j)/100}
-                script.append(node)
-                points.append([node['x'], node['y'], node['z']])
-            else:
-                node = {'x': 498.25 + y_clothoid[-1] + x_part2 + x_clothoid[-1] + j,
-                        'y': - 1.75,
-                        'z': 0.21,
-                        't': (i + j)/100}
-                script.append(node)
-                points.append([node['x'], node['y'], node['z']])
+                    if j < x_clothoid[-1]:
+                        node = {'x': start_x + x_clothoid[-1] - x_clothoid[-j-1],
+                                'y': start_y - y_clothoid[-1] + y_clothoid[-j-1],
+                                'z': 0.21,
+                                't': t}
+                        script.append(node)
+                        points.append([node['x'], node['y'], node['z']])
 
-            if j % 2 == 0:
-                sphere_coordinates.append([node['x'], node['y'], node['z']])
-                sphere_radii.append(np.abs(np.sin(np.radians(i + j))) * 0.25)
-                sphere_colors.append([np.sin(np.radians(i + j)), 0, 0, 0.8])
+                    else:
+                        node = {'x': self._vut_position[0] + y_clothoid[-1] + x_part2 + j,
+                                'y': script[-1]['y'],  # TODO y != -1.75
+                                'z': 0.21,
+                                't': t}
+                        script.append(node)
+                        points.append([node['x'], node['y'], node['z']])
 
-        self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
+                    sphere_coordinates.append([node['x'], node['y'], node['z']])
+                    sphere_radii.append(0.1)
+                    sphere_colors.append([1, 0, 0, 0.8])
+                    
+                break
+
+            sphere_coordinates.append([node['x'], node['y'], node['z']])
+            sphere_radii.append(0.1)
+            sphere_colors.append([1, 0, 0, 0.8])
+
+        if debug:
+            self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
                               sphere_colors, cling=True, offset=0.1)
-        self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
-        self.vut.ai_set_script(script)
+            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
+        
+        return script
+
+    def _define_gvt_trajectory(self, debug: bool=False) -> list:
+        script = []
+        points = []
+        point_color = [0, 0, 0, 0.1]
+        sphere_coordinates = []
+        sphere_radii = []
+        sphere_colors = []
+        i = 0
+
+        for y in range(self._gvt_position[1], 1000):
+            i += 1
+            t = i/self._gvt_speed
+            node = {'x': self._gvt_position[0],
+                    'y': y,
+                    'z': 0.21,
+                    't': t}
+            script.append(node)
+            points.append([node['x'], node['y'], node['z']])
+
+            sphere_coordinates.append([node['x'], node['y'], node['z']])
+            sphere_radii.append(0.1)
+            sphere_colors.append([1, 0, 0, 0.8])
+
+        if debug:
+            self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
+                              sphere_colors, cling=True, offset=0.1)
+            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
+        
+        return script
+
 
     def load(self):
         """
@@ -806,12 +845,7 @@ class CCFScenario(CCScenario):
 
         self.bng.switch_vehicle(self.vut)
 
-        self._define_vut_trajectory()
-
-        while True:
-            self.bng.step(10)
-
-        #self._accelerate_cars()
+        self._accelerate_cars()
 
         return self._observe()
 
