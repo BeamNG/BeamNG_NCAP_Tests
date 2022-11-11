@@ -667,23 +667,35 @@ class CCFScenario(CCScenario):
             gvt_speed (float): Speed of the GVT in km/h.
             distance (float): Distance between the Cars in m.
         """
-        super().__init__(bng, vut_speed, (500 - 1.75, 150, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
-                         gvt_speed, (500 + 1.75, -400, 0.21), (0, 0, 1, 0),
+        # TODO better trajectories synchronisation needed
+        vut_start_y = 40
+        gvt_start_y = - int((vut_start_y - (gvt_speed - vut_speed)*vut_speed/gvt_speed)/vut_speed*gvt_speed)
+
+        super().__init__(bng, vut_speed, (500 - 1.75, vut_start_y, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
+                         gvt_speed, (500 + 1.75, gvt_start_y, 0.21), (0, 0, 1, 0),
                          'ccftab_waypoint_gvt')
 
         assert vut_speed in range(10, 25, 5)
         assert gvt_speed in [30, 45, 55]
 
-    def _accelerate_cars(self):
+    def _follow_trajectories(self):
         vut_script = self._define_vut_trajectory()
         gvt_script = self._define_gvt_trajectory()
         self.vut.ai_set_script(vut_script)
         self.gvt.ai_set_script(gvt_script)
 
-        while True:
+        while not self._vut_ready():
             self.bng.step(10)
 
     def _define_vut_trajectory(self, debug: bool=False) -> list:
+        '''
+        Define the trajectory for the vut vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary 
+                           with the fields: 'x', 'y', 'z' amnd 't'    
+        '''
         match self._vut_speed*3.6:
             case 10:
                 alpha = np.deg2rad(20.62)
@@ -804,6 +816,14 @@ class CCFScenario(CCScenario):
         return script
 
     def _define_gvt_trajectory(self, debug: bool=False) -> list:
+        '''
+        Define the trajectory for the gvt vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary 
+                           with the fields: 'x', 'y', 'z' amnd 't'    
+        '''
         script = []
         points = []
         point_color = [0, 0, 0, 0.1]
@@ -833,6 +853,8 @@ class CCFScenario(CCScenario):
         
         return script
 
+    def _vut_ready(self) -> bool:
+        return False
 
     def load(self):
         """
@@ -845,7 +867,7 @@ class CCFScenario(CCScenario):
 
         self.bng.switch_vehicle(self.vut)
 
-        self._accelerate_cars()
+        self._follow_trajectories()
 
         return self._observe()
 
