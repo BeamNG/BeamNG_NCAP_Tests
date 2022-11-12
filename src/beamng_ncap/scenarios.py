@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple
 
 import time
 import numpy as np
+import keyboard
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
@@ -71,11 +72,11 @@ def generate_scenario(vut_model: str, gvt_model: str) -> Scenario:
     scenario.add_object(ccrs_waypoint)
 
     ccftab_waypoint = ScenarioObject('ccftab_waypoint_gvt', None, 'BeamNGWaypoint',
-                                     (498.25, -1000, 0.23), (1, 1, 1), (0, 0, 0, 1))
+                                     (500, 1000, 0.23), (1, 1, 1), (0, 0, 1, 0))
     scenario.add_object(ccftab_waypoint)
 
     ccftab_waypoint2 = ScenarioObject('ccftab_waypoint_vut', None, 'BeamNGWaypoint',
-                                      (500, 1000, 0.23), (1, 1, 1), (0, 0, 0, 1))  # 501.75
+                                      (500, -1000, 0.23), (1, 1, 1), (0, 0, 0, 1))
     scenario.add_object(ccftab_waypoint2)
 
     vut = Vehicle('vut', model=vut_model, licence='VUT')
@@ -247,13 +248,13 @@ class CCScenario(NCAPScenario):
         """
         vut_speed = 0
         gvt_speed = 0
-        while not self._cars_reached_speed(vut_speed, gvt_speed):
+        while not self._cars_reached_speed(vut_speed, gvt_speed): # TODO add also ttc check
             self.bng.step(10)
             observation = self._observe()
             vut_speed = observation['vut']['electrics']['wheelspeed']
             gvt_speed = observation['gvt']['electrics']['wheelspeed']
 
-    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):  # TODO check the reference
+    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
         """
         Checks whether both cars have reached the desired speed.
         Notes:
@@ -289,6 +290,16 @@ class CCScenario(NCAPScenario):
             return 1
 
         return 0
+
+    def _countdown(self, seconds: int):
+        self.bng.pause()
+        self.bng.display_gui_message('When the game restarts you can take control of the car pressing SPACE')
+        time.sleep(3)
+        for s in range(seconds, 0, -1):
+            self.bng.display_gui_message(f'Get ready! The game will restart in {s} seconds.')
+            time.sleep(1)
+        self.bng.display_gui_message(f'Go!')
+        self.bng.resume()
 
 
 class CCRScenario(CCScenario):
@@ -353,10 +364,19 @@ class CCRScenario(CCScenario):
         exit_condition3 = False
 
         if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
-            self._countdown(5)
-            self.vut.ai_set_mode('disabled')
+            self._countdown(3)
+            self.bng.pause()
+            ai_disabled = False
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
+                if keyboard.is_pressed('Space') and not ai_disabled:
+                    self.vut.ai_set_mode('disabled')
+                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.resume()
+                    ai_disabled = True
+                elif not ai_disabled:
+                    self.step(10)
+
                 sensors = self._observe()
 
                 vut_dmg = sensors['vut']['damage']['damage']
@@ -511,14 +531,6 @@ class CCRScenario(CCScenario):
         '''
         pass
 
-    def _countdown(self, seconds: int):
-        self.bng.pause()
-        for s in range(seconds, 0, -1):
-            self.bng.display_gui_message(f'Get ready! You will get control in {s} seconds.')
-            time.sleep(1)
-        self.bng.display_gui_message(f'Go!')
-        self.bng.resume()
-
 
 class CCRS(CCRScenario):
     """
@@ -652,3 +664,297 @@ class CCRB(CCRScenario):
             position[2] = self.vut.state['pos'][2]
 
             self.vut.teleport(list(position), reset=False)
+
+
+class CCFScenario(CCScenario):
+    """
+    Base class for the car to car front scenarios.
+    """
+
+    def __init__(self, bng: BeamNGpy, vut_speed: float, gvt_speed: float):
+        """
+        Args:
+            bng (:class:`.BeamNGpy`): BeamNGpy instance.
+            vut_speed (float): Speed of the VUT in km/h.
+            gvt_speed (float): Speed of the GVT in km/h.
+            distance (float): Distance between the Cars in m.
+        """
+        # TODO better trajectories synchronisation needed
+        vut_start_y = 40
+        gvt_start_y = - int((vut_start_y - (gvt_speed - vut_speed)*vut_speed/gvt_speed)/vut_speed*gvt_speed)
+
+        super().__init__(bng, vut_speed, (500 - 1.75, vut_start_y, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
+                         gvt_speed, (500 + 1.75, gvt_start_y, 0.21), (0, 0, 1, 0),
+                         'ccftab_waypoint_gvt')
+
+        assert vut_speed in range(10, 25, 5)
+        assert gvt_speed in [30, 45, 55]
+
+    def _follow_trajectories(self):
+        vut_script = self._define_vut_trajectory()
+        gvt_script = self._define_gvt_trajectory()
+        self.vut.ai_set_script(vut_script)
+        self.gvt.ai_set_script(gvt_script)
+
+        while self._ttc() > 4:
+            self.bng.step(10)
+
+    def _define_vut_trajectory(self, debug: bool=False) -> list:
+        '''
+        Define the trajectory for the vut vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary 
+                           with the fields: 'x', 'y', 'z' amnd 't'    
+        '''
+        match self._vut_speed*3.6:
+            case 10:
+                alpha = np.deg2rad(20.62)
+                beta = np.deg2rad(48.76)
+                r2 = 9
+            case 15:
+                alpha = np.deg2rad(20.93)
+                beta = np.deg2rad(48.14)
+                r2 = 11.75
+            case 20:
+                alpha = np.deg2rad(21.79)
+                beta = np.deg2rad(46.42)
+                r2 = 14.75
+
+        L = 2*alpha*r2
+        x_clothoid = []
+        y_clothoid = []
+
+        for l in range(int(L)):
+            x_clothoid.append(l - l**5/(40*(r2*L)**2) + l**9/(3465*(r2*L)**4) - l**13/(599040*(r2*L)**6))
+            y_clothoid.append(l**3/(6*(r2*L)) - l**7/(336*(r2*L)**3) + l**11/(42240*(r2*L)**5) - l**15/(9676800*(r2*L)**7))
+        
+        x_part2 = 2*r2*np.sin(beta/2)/np.sqrt(2)
+        y_clothoid1 = - 1.75 + x_clothoid[-1] + y_clothoid[-1] + x_part2
+        y_constant_radius = - 1.75 + y_clothoid[-1] + x_part2
+
+        script = []
+        points = []
+        point_color = [0, 0, 0, 0.1]
+        sphere_coordinates = []
+        sphere_radii = []
+        sphere_colors = []
+
+        clothoid_index1 = 0
+        constant_radius_index = 1
+        constant_radius_segment = 2*r2*np.sin(1/r2/2)
+        y = self._vut_position[1]
+        i = 0
+
+        while y >= - 1.75:
+            i += 1
+            t = i/self._vut_speed
+            if y >= y_clothoid1:
+                node = {'x': self._vut_position[0],
+                        'y': y,
+                        'z': 0.21,
+                        't': t}
+                script.append(node)
+                points.append([node['x'], node['y'], node['z']])
+                y -= 1
+
+            elif y < y_clothoid1 and y > y_constant_radius:
+                if clothoid_index1 == 0:
+                    start_y = script[-1]['y']
+                delta_y = script[-1]['y'] - (start_y - x_clothoid[clothoid_index1])
+                y -= delta_y
+                node = {'x': self._vut_position[0] + y_clothoid[clothoid_index1],
+                        'y': start_y - x_clothoid[clothoid_index1],
+                        'z': 0.21,
+                        't': t}
+                script.append(node)
+                points.append([node['x'], node['y'], node['z']])
+                clothoid_index1 += 1
+
+            elif y <= y_constant_radius:
+                gamma_k = np.pi/4 - beta/2 + 1/r2*constant_radius_index/2
+                delta_x = constant_radius_segment*np.sin(gamma_k)
+                delta_y = constant_radius_segment*np.cos(gamma_k)
+
+                node = {'x': script[-1]['x'] + delta_x,
+                        'y': script[-1]['y'] - delta_y,
+                        'z': 0.21,
+                        't': t}
+                script.append(node)
+                points.append([node['x'], node['y'], node['z']])
+
+                constant_radius_index += 2
+                y -= delta_y
+            
+            if y <= y_clothoid[-1] - 1.75:
+                start_x = script[-1]['x']
+                start_y = script[-1]['y']
+                for j in range(100):
+                    i += 1
+                    t = i/self._vut_speed
+
+                    if j < x_clothoid[-1]:
+                        node = {'x': start_x + x_clothoid[-1] - x_clothoid[-j-1],
+                                'y': start_y - y_clothoid[-1] + y_clothoid[-j-1],
+                                'z': 0.21,
+                                't': t}
+                        script.append(node)
+                        points.append([node['x'], node['y'], node['z']])
+
+                    else:
+                        node = {'x': self._vut_position[0] + y_clothoid[-1] + x_part2 + j,
+                                'y': script[-1]['y'],  # TODO y != -1.75
+                                'z': 0.21,
+                                't': t}
+                        script.append(node)
+                        points.append([node['x'], node['y'], node['z']])
+
+                    sphere_coordinates.append([node['x'], node['y'], node['z']])
+                    sphere_radii.append(0.1)
+                    sphere_colors.append([1, 0, 0, 0.8])
+                    
+                break
+
+            sphere_coordinates.append([node['x'], node['y'], node['z']])
+            sphere_radii.append(0.1)
+            sphere_colors.append([1, 0, 0, 0.8])
+
+        if debug:
+            self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
+                              sphere_colors, cling=True, offset=0.1)
+            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
+        
+        return script
+
+    def _define_gvt_trajectory(self, debug: bool=False) -> list:
+        '''
+        Define the trajectory for the gvt vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary 
+                           with the fields: 'x', 'y', 'z' amnd 't'    
+        '''
+        script = []
+        points = []
+        point_color = [0, 0, 0, 0.1]
+        sphere_coordinates = []
+        sphere_radii = []
+        sphere_colors = []
+        i = 0
+
+        for y in range(self._gvt_position[1], 1000):
+            i += 1
+            t = i/self._gvt_speed
+            node = {'x': self._gvt_position[0],
+                    'y': y,
+                    'z': 0.21,
+                    't': t}
+            script.append(node)
+            points.append([node['x'], node['y'], node['z']])
+
+            sphere_coordinates.append([node['x'], node['y'], node['z']])
+            sphere_radii.append(0.1)
+            sphere_colors.append([1, 0, 0, 0.8])
+
+        if debug:
+            self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
+                              sphere_colors, cling=True, offset=0.1)
+            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
+        
+        return script
+
+    def _ttc(self) -> float:
+        vut_bbox = self.vut.get_bbox()
+        vut_c_a = np.array(vut_bbox['front_bottom_left'])
+        vut_c_b = np.array(vut_bbox['front_bottom_right'])
+        vut_c = (vut_c_a + vut_c_b) / 2
+        vut_c[2] = 0  # Ignore Z
+
+        gvt_bbox = self.gvt.get_bbox()
+        gvt_c_a = np.array(gvt_bbox['front_bottom_left'])
+        gvt_c_b = np.array(gvt_bbox['front_bottom_right'])
+        gvt_c = (gvt_c_a + gvt_c_b)/2
+        gvt_c[2] = 0  # Ignore Z
+
+        distance = np.linalg.norm(vut_c - gvt_c)
+
+        sensors = self._observe()
+        vut_speed = sensors['vut']['electrics']['wheelspeed']
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        relative_speed = vut_speed + gvt_speed
+        relative_speed = 1 if relative_speed == 0 else relative_speed
+
+        return distance/relative_speed
+
+    def load(self):
+        """
+        Loads the Scenario.
+        """
+        self._teleport_vehicle(self.gvt, self._gvt_position,
+                               self._gvt_rotation)
+        self._teleport_vehicle(self.vut, self._vut_position,
+                               self._vut_rotation)
+
+        self.bng.switch_vehicle(self.vut)
+
+        self._follow_trajectories()
+
+        return self._observe()
+
+    def execute(self, control_mode='user') -> int:
+        '''
+        Execute the test stopping it according to [1] section 8.4.3 pag 21
+        Args:
+            control_mode (string): the control mode to use during the test execution
+                * ``user``: The user has to control the vehicle during the test execution
+        Returns:
+            terminal state:
+                * 1: Test passed successfully
+                * -1: Test failed
+                * 0: No terminal state reached
+        '''
+        exit_condition1 = False
+        exit_condition3 = False
+
+        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+            self._countdown(3)
+            self.bng.pause()
+            ai_disabled = False
+
+            while not any([exit_condition1, exit_condition3]):
+                if keyboard.is_pressed('Space') and not ai_disabled:
+                    self.vut.ai_set_mode('disabled')
+                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.resume()
+                    ai_disabled = True
+                elif not ai_disabled:
+                    self.step(10)
+
+                sensors = self._observe()
+                vut_dmg = sensors['vut']['damage']['damage']
+                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
+                gvt_dmg = sensors['gvt']['damage']['damage']
+
+                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                    exit_condition1 = True
+                    self.bng.pause()
+                elif vut_dmg or gvt_dmg:
+                    exit_condition3 = True
+                    self.bng.pause()
+
+        return self.get_state(self._observe())
+
+    def step(self, steps):
+        """
+        Advances the scenario the given amount of steps.
+        Args:
+            steps (int): The amount of steps to simulate.
+        Returns:
+            A Dictionary with the sensor data from the VUT and GVT.
+        """
+        self.bng.step(steps)
+        observation = self._observe()
+
+        return observation
