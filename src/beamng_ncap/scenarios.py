@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple
 
 import time
 import numpy as np
+import keyboard
 from beamngpy import BeamNGpy, Road, Scenario, ScenarioObject, Vehicle
 from beamngpy.sensors import Damage, Electrics, Timer
 
@@ -247,13 +248,13 @@ class CCScenario(NCAPScenario):
         """
         vut_speed = 0
         gvt_speed = 0
-        while not self._cars_reached_speed(vut_speed, gvt_speed):
+        while not self._cars_reached_speed(vut_speed, gvt_speed): # TODO add also ttc check
             self.bng.step(10)
             observation = self._observe()
             vut_speed = observation['vut']['electrics']['wheelspeed']
             gvt_speed = observation['gvt']['electrics']['wheelspeed']
 
-    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):  # TODO check the reference
+    def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
         """
         Checks whether both cars have reached the desired speed.
         Notes:
@@ -289,6 +290,16 @@ class CCScenario(NCAPScenario):
             return 1
 
         return 0
+
+    def _countdown(self, seconds: int):
+        self.bng.pause()
+        self.bng.display_gui_message('When the game restarts you can take control of the car pressing SPACE')
+        time.sleep(3)
+        for s in range(seconds, 0, -1):
+            self.bng.display_gui_message(f'Get ready! The game will restart in {s} seconds.')
+            time.sleep(1)
+        self.bng.display_gui_message(f'Go!')
+        self.bng.resume()
 
 
 class CCRScenario(CCScenario):
@@ -353,10 +364,19 @@ class CCRScenario(CCScenario):
         exit_condition3 = False
 
         if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
-            self._countdown(5)
-            self.vut.ai_set_mode('disabled')
+            self._countdown(3)
+            self.bng.pause()
+            ai_disabled = False
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
+                if keyboard.is_pressed('Space') and not ai_disabled:
+                    self.vut.ai_set_mode('disabled')
+                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.resume()
+                    ai_disabled = True
+                elif not ai_disabled:
+                    self.step(10)
+
                 sensors = self._observe()
 
                 vut_dmg = sensors['vut']['damage']['damage']
@@ -510,14 +530,6 @@ class CCRScenario(CCScenario):
         Fix the boundary conditions according to [1] section 8.4.2 pag 20
         '''
         pass
-
-    def _countdown(self, seconds: int):
-        self.bng.pause()
-        for s in range(seconds, 0, -1):
-            self.bng.display_gui_message(f'Get ready! You will get control in {s} seconds.')
-            time.sleep(1)
-        self.bng.display_gui_message(f'Go!')
-        self.bng.resume()
 
 
 class CCRS(CCRScenario):
@@ -684,7 +696,7 @@ class CCFScenario(CCScenario):
         self.vut.ai_set_script(vut_script)
         self.gvt.ai_set_script(gvt_script)
 
-        while not self._vut_ready():
+        while self._ttc() > 4:
             self.bng.step(10)
 
     def _define_vut_trajectory(self, debug: bool=False) -> list:
@@ -853,8 +865,28 @@ class CCFScenario(CCScenario):
         
         return script
 
-    def _vut_ready(self) -> bool:
-        return False
+    def _ttc(self) -> float:
+        vut_bbox = self.vut.get_bbox()
+        vut_c_a = np.array(vut_bbox['front_bottom_left'])
+        vut_c_b = np.array(vut_bbox['front_bottom_right'])
+        vut_c = (vut_c_a + vut_c_b) / 2
+        vut_c[2] = 0  # Ignore Z
+
+        gvt_bbox = self.gvt.get_bbox()
+        gvt_c_a = np.array(gvt_bbox['front_bottom_left'])
+        gvt_c_b = np.array(gvt_bbox['front_bottom_right'])
+        gvt_c = (gvt_c_a + gvt_c_b)/2
+        gvt_c[2] = 0  # Ignore Z
+
+        distance = np.linalg.norm(vut_c - gvt_c)
+
+        sensors = self._observe()
+        vut_speed = sensors['vut']['electrics']['wheelspeed']
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        relative_speed = vut_speed + gvt_speed
+        relative_speed = 1 if relative_speed == 0 else relative_speed
+
+        return distance/relative_speed
 
     def load(self):
         """
@@ -870,6 +902,49 @@ class CCFScenario(CCScenario):
         self._follow_trajectories()
 
         return self._observe()
+
+    def execute(self, control_mode='user') -> int:
+        '''
+        Execute the test stopping it according to [1] section 8.4.3 pag 21
+        Args:
+            control_mode (string): the control mode to use during the test execution
+                * ``user``: The user has to control the vehicle during the test execution
+        Returns:
+            terminal state:
+                * 1: Test passed successfully
+                * -1: Test failed
+                * 0: No terminal state reached
+        '''
+        exit_condition1 = False
+        exit_condition3 = False
+
+        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+            self._countdown(3)
+            self.bng.pause()
+            ai_disabled = False
+
+            while not any([exit_condition1, exit_condition3]):
+                if keyboard.is_pressed('Space') and not ai_disabled:
+                    self.vut.ai_set_mode('disabled')
+                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.resume()
+                    ai_disabled = True
+                elif not ai_disabled:
+                    self.step(10)
+
+                sensors = self._observe()
+                vut_dmg = sensors['vut']['damage']['damage']
+                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
+                gvt_dmg = sensors['gvt']['damage']['damage']
+
+                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                    exit_condition1 = True
+                    self.bng.pause()
+                elif vut_dmg or gvt_dmg:
+                    exit_condition3 = True
+                    self.bng.pause()
+
+        return self.get_state(self._observe())
 
     def step(self, steps):
         """
