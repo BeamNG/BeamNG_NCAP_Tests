@@ -9,6 +9,10 @@ References:
 [2] European New Car Assessment Programme. Test Protocol - AEB VRU systems.
     Version 3.0.2. July 2019.
     https://cdn.euroncap.com/media/53153/euro-ncap-aeb-vru-test-protocol-v302.pdf
+[3] European New Car Assessment Programme. Assessment Protocol - Safety Assist.
+    Version 9.1 November 2021
+    https://cdn.euroncap.com/media/67254/euro-ncap-assessment-protocol-sa-v91.pdf
+
 .. moduleauthor:: Sedonas <https://github.com/Sedonas>
 .. moduleauthor:: Marc Müller <mmueller@beamng.gmbh>
 """
@@ -160,6 +164,31 @@ class NCAPScenario(ABC):
         Args:
             sensors (dict): The sensor data from both vehicles as a dictionary
                             of dictionaries.
+        """
+        pass
+
+    @abstractmethod
+    def get_score(self, sensors):
+        """
+        Returns the score of the test.
+        Args:
+            sensors (dict): The sensor data from both vehicles as a dictionary
+                            of dictionaries.
+        """
+        pass
+
+    @abstractmethod
+    def _fix_boundary_conditions(self):
+        '''
+        Fix the boundary conditions according to [1] section 8.4.2 pag 20
+        '''
+        pass
+
+    @abstractmethod
+    def _get_color_scheme(self):
+        """
+        Select the right color scheme according to the vut speed. 
+        See [1] section 6.1.3 pag 9.
         """
         pass
 
@@ -363,7 +392,7 @@ class CCRScenario(CCScenario):
         exit_condition2 = False
         exit_condition3 = False
 
-        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+        if control_mode == 'user':
             self._countdown(3)
             self.bng.pause()
             ai_disabled = False
@@ -375,16 +404,16 @@ class CCRScenario(CCScenario):
                     self.bng.resume()
                     ai_disabled = True
                 elif not ai_disabled:
-                    self.step(10)
+                    self.step(1) # need 1 step to compute precisely the impact speed
 
                 sensors = self._observe()
 
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
+                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
                 gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                if np.isclose(vut_speed, 0, atol=1e-2): 
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_speed < gvt_speed:
@@ -415,14 +444,17 @@ class CCRScenario(CCScenario):
                 gvt_dmg = sensors['gvt']['damage']['damage']
                 gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                if np.isclose(vut_speed, 0, atol=1e-2):
                     exit_condition1 = True
                 elif vut_speed < gvt_speed:
                     exit_condition2 = True
                 elif vut_dmg or gvt_dmg:
                     exit_condition3
 
-        return self.get_state(self._observe())
+        score = self.get_score(sensors)
+        state = self.get_state(sensors)
+
+        return state, score
 
     def _get_distance(self):
         """
@@ -525,11 +557,24 @@ class CCRScenario(CCScenario):
 
         return steering, throttle, brake
 
-    def _fix_boundary_conditions(self):
-        '''
-        Fix the boundary conditions according to [1] section 8.4.2 pag 20
-        '''
-        pass
+    def get_score(self, sensors):
+        """
+        Returns the score of the test.
+        Args:
+            sensors (dict): The sensor data from both vehicles as a dictionary
+                            of dictionaries.
+        """
+        vut_speed = sensors['vut']['electrics']['wheelspeed']*3.6
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']*3.6
+        impact_relative_speed = vut_speed - gvt_speed
+        color_scheme = self._get_color_scheme()
+        score = 0
+
+        for i, treshold in enumerate(color_scheme['tresholds']):
+            if impact_relative_speed < treshold:
+                score = color_scheme['scores'][i]
+
+        return score
 
 
 class CCRS(CCRScenario):
@@ -551,6 +596,95 @@ class CCRS(CCRScenario):
 
         distance = vut_speed / 3.6 * 4
         super(CCRS, self).__init__(bng, vut_speed, 0, distance, overlap)
+
+    def _get_color_scheme(self):
+        """
+        Select the right color scheme according to the vut speed. 
+        See [1] section 6.1.3 pag 9.
+        """
+        color_schemes = {'50': self._color_scheme_vut_50,
+                         '45': self._color_scheme_vut_45,
+                         '40': self._color_scheme_vut_40,
+                         '35': self._color_scheme_vut_35,
+                         '30': self._color_scheme_vut_30,
+                         '25': self._color_scheme_vut_25,
+                         '20': self._color_scheme_vut_20,
+                         '15': self._color_scheme_vut_15,
+                         '10': self._color_scheme_vut_10}
+
+        return color_schemes[str(int(self._vut_speed*3.6))]()
+
+    def _color_scheme_vut_50(self):
+        """
+        Color scheme for vut speed equal to 50 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [40, 30, 15, 5], 
+                'scores': [0.25, 0.5, 0.75, 1]}
+
+    def _color_scheme_vut_45(self):
+        """
+        Color scheme for vut speed equal to 45 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [35, 25, 15, 5], 
+                'scores': [0.25, 0.5, 0.75, 1]}
+
+    def _color_scheme_vut_40(self):
+        """
+        Color scheme for vut speed equal to 40 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [35, 25, 15, 5], 
+                'scores': [0.25, 0.5, 0.75, 1]}
+
+    def _color_scheme_vut_35(self):
+        """
+        Color scheme for vut speed equal to 35 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [25, 15, 5], 
+                'scores': [0.5, 0.75, 1]}
+
+    def _color_scheme_vut_30(self):
+        """
+        Color scheme for vut speed equal to 30 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [25, 15, 5], 
+                'scores': [0.5, 0.75, 1]}
+
+    def _color_scheme_vut_25(self):
+        """
+        Color scheme for vut speed equal to 25 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [15, 5], 
+                'scores': [0.5, 1]}
+
+    def _color_scheme_vut_20(self):
+        """
+        Color scheme for vut speed equal to 20 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [1], 
+                'scores': [1]}
+
+    def _color_scheme_vut_15(self):
+        """
+        Color scheme for vut speed equal to 15 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [1], 
+                'scores': [1]}
+
+    def _color_scheme_vut_10(self):
+        """
+        Color scheme for vut speed equal to 10 km/h. 
+        See [1] section 6.1.3 pag 9.
+        """
+        return {'tresholds': [1], 
+                'scores': [1]}
 
 
 class CCRM(CCRScenario):
@@ -745,7 +879,7 @@ class CCFScenario(CCScenario):
         exit_condition1 = False
         exit_condition3 = False
 
-        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+        if control_mode == 'user':
             self._countdown(3)
             self.bng.pause()
             ai_disabled = False
@@ -761,17 +895,19 @@ class CCFScenario(CCScenario):
 
                 sensors = self._observe()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
+                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
 
-                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                if np.isclose(vut_speed, 0, atol=1e-2):
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_dmg or gvt_dmg:
                     exit_condition3 = True
                     self.bng.pause()
 
-        return self.get_state(self._observe())
+        state = self.get_state(sensors)
+        
+        return state
 
     def step(self, steps):
         """
