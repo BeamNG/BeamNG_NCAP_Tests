@@ -177,21 +177,6 @@ class NCAPScenario(ABC):
         """
         pass
 
-    @abstractmethod
-    def _fix_boundary_conditions(self):
-        '''
-        Fix the boundary conditions according to [1] section 8.4.2 pag 20
-        '''
-        pass
-
-    @abstractmethod
-    def _get_color_scheme(self):
-        """
-        Select the right color scheme according to the vut speed. 
-        See [1] section 6.1.3 pag 9.
-        """
-        pass
-
 
 class CCScenario(NCAPScenario):
     """
@@ -576,6 +561,19 @@ class CCRScenario(CCScenario):
 
         return score
 
+    def _fix_boundary_conditions(self):
+        '''
+        Fix the boundary conditions according to [1] section 8.4.2 pag 20
+        '''
+        pass
+
+    def _get_color_scheme(self):
+        """
+        Select the right color scheme according to the vut speed. 
+        See [1] section 6.1.3 pag 9.
+        """
+        pass
+
 
 class CCRS(CCRScenario):
     """
@@ -602,89 +600,36 @@ class CCRS(CCRScenario):
         Select the right color scheme according to the vut speed. 
         See [1] section 6.1.3 pag 9.
         """
-        color_schemes = {'50': self._color_scheme_vut_50,
-                         '45': self._color_scheme_vut_45,
-                         '40': self._color_scheme_vut_40,
-                         '35': self._color_scheme_vut_35,
-                         '30': self._color_scheme_vut_30,
-                         '25': self._color_scheme_vut_25,
-                         '20': self._color_scheme_vut_20,
-                         '15': self._color_scheme_vut_15,
-                         '10': self._color_scheme_vut_10}
+        color_scheme_50 = {'tresholds': [40, 30, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_45 = {'tresholds': [35, 25, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_40 = {'tresholds': [35, 25, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_35 = {'tresholds': [25, 15, 5], 
+                           'scores': [0.5, 0.75, 1]}
+        color_scheme_30 = {'tresholds': [25, 15, 5], 
+                           'scores': [0.5, 0.75, 1]}
+        color_scheme_25 = {'tresholds': [15, 5], 
+                           'scores': [0.5, 1]}
+        color_scheme_20 = {'tresholds': [1], 
+                           'scores': [1]}
+        color_scheme_15 = {'tresholds': [1], 
+                           'scores': [1]}
+        color_scheme_10 = {'tresholds': [1], 
+                          'scores': [1]}
 
-        return color_schemes[str(int(self._vut_speed*3.6))]()
+        color_schemes = {'50': color_scheme_50,
+                         '45': color_scheme_45,
+                         '40': color_scheme_40,
+                         '35': color_scheme_35,
+                         '30': color_scheme_30,
+                         '25': color_scheme_25,
+                         '20': color_scheme_20,
+                         '15': color_scheme_15,
+                         '10': color_scheme_10}
 
-    def _color_scheme_vut_50(self):
-        """
-        Color scheme for vut speed equal to 50 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [40, 30, 15, 5], 
-                'scores': [0.25, 0.5, 0.75, 1]}
-
-    def _color_scheme_vut_45(self):
-        """
-        Color scheme for vut speed equal to 45 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [35, 25, 15, 5], 
-                'scores': [0.25, 0.5, 0.75, 1]}
-
-    def _color_scheme_vut_40(self):
-        """
-        Color scheme for vut speed equal to 40 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [35, 25, 15, 5], 
-                'scores': [0.25, 0.5, 0.75, 1]}
-
-    def _color_scheme_vut_35(self):
-        """
-        Color scheme for vut speed equal to 35 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [25, 15, 5], 
-                'scores': [0.5, 0.75, 1]}
-
-    def _color_scheme_vut_30(self):
-        """
-        Color scheme for vut speed equal to 30 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [25, 15, 5], 
-                'scores': [0.5, 0.75, 1]}
-
-    def _color_scheme_vut_25(self):
-        """
-        Color scheme for vut speed equal to 25 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [15, 5], 
-                'scores': [0.5, 1]}
-
-    def _color_scheme_vut_20(self):
-        """
-        Color scheme for vut speed equal to 20 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [1], 
-                'scores': [1]}
-
-    def _color_scheme_vut_15(self):
-        """
-        Color scheme for vut speed equal to 15 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [1], 
-                'scores': [1]}
-
-    def _color_scheme_vut_10(self):
-        """
-        Color scheme for vut speed equal to 10 km/h. 
-        See [1] section 6.1.3 pag 9.
-        """
-        return {'tresholds': [1], 
-                'scores': [1]}
+        return color_schemes[str(int(self._vut_speed*3.6))]
 
 
 class CCRM(CCRScenario):
@@ -706,6 +651,48 @@ class CCRM(CCRScenario):
 
         distance = vut_speed / 3.6 * 4 - 20 / 3.6 * 4
         super(CCRM, self).__init__(bng, vut_speed, 20, distance, overlap)
+
+    def _get_color_scheme(self):
+        """
+        Select the right color scheme according to the vut speed. 
+        See [1] section 6.1.3 pag 10.
+        """
+        color_scheme_80 = {'tresholds': [50, 35, 20, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_75 = {'tresholds': [45, 30, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_70 = {'tresholds': [40, 30, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_65 = {'tresholds': [35, 25, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_60 = {'tresholds': [35, 25, 15, 5], 
+                           'scores': [0.25, 0.5, 0.75, 1]}
+        color_scheme_55 = {'tresholds': [25, 15, 5], 
+                           'scores': [0.5, 0.75, 1]}
+        color_scheme_50 = {'tresholds': [25, 15, 5], 
+                           'scores': [0.5, 0.75, 1]}
+        color_scheme_45 = {'tresholds': [15, 5], 
+                           'scores': [0.5, 1]}
+        color_scheme_40 = {'tresholds': [15, 5], 
+                           'scores': [0.5, 1]}
+        color_scheme_35 = {'tresholds': [5], 
+                           'scores': [1]}
+        color_scheme_30 = {'tresholds': [5], 
+                           'scores': [1]}
+
+        color_schemes = {'80': color_scheme_80,
+                         '75': color_scheme_75,
+                         '70': color_scheme_70,
+                         '65': color_scheme_65,
+                         '60': color_scheme_60,
+                         '55': color_scheme_55,
+                         '50': color_scheme_50,
+                         '45': color_scheme_45,
+                         '40': color_scheme_40,
+                         '35': color_scheme_35,
+                         '30': color_scheme_30}
+
+        return color_schemes[str(int(self._vut_speed*3.6))]
 
 
 class CCRB(CCRScenario):
