@@ -679,16 +679,9 @@ class CCFScenario(CCScenario):
             gvt_speed (float): Speed of the GVT in km/h.
             distance (float): Distance between the Cars in m.
         """
-        # TODO better trajectories synchronisation needed
-        vut_start_y = 40
-        gvt_start_y = - int((vut_start_y - (gvt_speed - vut_speed)*vut_speed/gvt_speed)/vut_speed*gvt_speed)
-
-        super().__init__(bng, vut_speed, (500 - 1.75, vut_start_y, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
-                         gvt_speed, (500 + 1.75, gvt_start_y, 0.21), (0, 0, 1, 0),
+        super().__init__(bng, vut_speed, (500 - 1.75, self._vut_start_y, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
+                         gvt_speed, (500 + 1.75, self._gvt_start_y, 0.21), (0, 0, 1, 0),
                          'ccftab_waypoint_gvt')
-
-        assert vut_speed in range(10, 25, 5)
-        assert gvt_speed in [30, 45, 55]
 
     def _follow_trajectories(self):
         vut_script = self._define_vut_trajectory()
@@ -698,6 +691,123 @@ class CCFScenario(CCScenario):
 
         while self._ttc() > 4:
             self.bng.step(10)
+
+    def _ttc(self) -> float:
+        vut_bbox = self.vut.get_bbox()
+        vut_c_a = np.array(vut_bbox['front_bottom_left'])
+        vut_c_b = np.array(vut_bbox['front_bottom_right'])
+        vut_c = (vut_c_a + vut_c_b) / 2
+        vut_c[2] = 0  # Ignore Z
+
+        gvt_bbox = self.gvt.get_bbox()
+        gvt_c_a = np.array(gvt_bbox['front_bottom_left'])
+        gvt_c_b = np.array(gvt_bbox['front_bottom_right'])
+        gvt_c = (gvt_c_a + gvt_c_b)/2
+        gvt_c[2] = 0  # Ignore Z
+
+        distance = np.linalg.norm(vut_c - gvt_c)
+
+        sensors = self._observe()
+        vut_speed = sensors['vut']['electrics']['wheelspeed']
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        relative_speed = vut_speed + gvt_speed
+        relative_speed = 1 if relative_speed == 0 else relative_speed
+
+        return distance/relative_speed
+
+    def load(self):
+        """
+        Loads the Scenario.
+        """
+        self._teleport_vehicle(self.gvt, self._gvt_position,
+                               self._gvt_rotation)
+        self._teleport_vehicle(self.vut, self._vut_position,
+                               self._vut_rotation)
+
+        self.bng.switch_vehicle(self.vut)
+
+        self._follow_trajectories()
+
+        return self._observe()
+
+    def execute(self, control_mode='user') -> int:
+        '''
+        Execute the test stopping it according to [1] section 8.4.3 pag 21
+        Args:
+            control_mode (string): the control mode to use during the test execution
+                * ``user``: The user has to control the vehicle during the test execution
+        Returns:
+            terminal state:
+                * 1: Test passed successfully
+                * -1: Test failed
+                * 0: No terminal state reached
+        '''
+        exit_condition1 = False
+        exit_condition3 = False
+
+        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
+            self._countdown(3)
+            self.bng.pause()
+            ai_disabled = False
+
+            while not any([exit_condition1, exit_condition3]):
+                if keyboard.is_pressed('Space') and not ai_disabled:
+                    self.vut.ai_set_mode('disabled')
+                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.resume()
+                    ai_disabled = True
+                elif not ai_disabled:
+                    self.step(10)
+
+                sensors = self._observe()
+                vut_dmg = sensors['vut']['damage']['damage']
+                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
+                gvt_dmg = sensors['gvt']['damage']['damage']
+
+                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
+                    exit_condition1 = True
+                    self.bng.pause()
+                elif vut_dmg or gvt_dmg:
+                    exit_condition3 = True
+                    self.bng.pause()
+
+        return self.get_state(self._observe())
+
+    def step(self, steps):
+        """
+        Advances the scenario the given amount of steps.
+        Args:
+            steps (int): The amount of steps to simulate.
+        Returns:
+            A Dictionary with the sensor data from the VUT and GVT.
+        """
+        self.bng.step(steps)
+        observation = self._observe()
+
+        return observation
+
+
+class CCFTAP(CCFScenario):
+    """
+    Implementation of the Car-to-Car Front turn-across-path
+    """
+    def __init__(self, bng: BeamNGpy, vut_speed: float, gvt_speed: float):
+        """
+        Args:
+            bng (:class:`.BeamNGpy`): BeamNGpy instance.
+            vut_speed (float): Speed of the VUT in km/h.
+            gvt_speed (float): Speed of the GVT in km/h.
+            distance (float): Distance between the Cars in m.
+        """
+
+        assert vut_speed in range(10, 25, 5)
+        assert gvt_speed in [30, 45, 55]
+
+        # TODO better trajectories synchronisation needed
+        self._vut_start_y = 40
+        self._gvt_start_y = - int((self._vut_start_y - (gvt_speed - vut_speed)*vut_speed/gvt_speed)/vut_speed*gvt_speed)
+
+        super(CCFTAP, self).__init__(bng, vut_speed, gvt_speed)
 
     def _define_vut_trajectory(self, debug: bool=False) -> list:
         '''
@@ -864,97 +974,3 @@ class CCFScenario(CCScenario):
             self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
         
         return script
-
-    def _ttc(self) -> float:
-        vut_bbox = self.vut.get_bbox()
-        vut_c_a = np.array(vut_bbox['front_bottom_left'])
-        vut_c_b = np.array(vut_bbox['front_bottom_right'])
-        vut_c = (vut_c_a + vut_c_b) / 2
-        vut_c[2] = 0  # Ignore Z
-
-        gvt_bbox = self.gvt.get_bbox()
-        gvt_c_a = np.array(gvt_bbox['front_bottom_left'])
-        gvt_c_b = np.array(gvt_bbox['front_bottom_right'])
-        gvt_c = (gvt_c_a + gvt_c_b)/2
-        gvt_c[2] = 0  # Ignore Z
-
-        distance = np.linalg.norm(vut_c - gvt_c)
-
-        sensors = self._observe()
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
-        relative_speed = vut_speed + gvt_speed
-        relative_speed = 1 if relative_speed == 0 else relative_speed
-
-        return distance/relative_speed
-
-    def load(self):
-        """
-        Loads the Scenario.
-        """
-        self._teleport_vehicle(self.gvt, self._gvt_position,
-                               self._gvt_rotation)
-        self._teleport_vehicle(self.vut, self._vut_position,
-                               self._vut_rotation)
-
-        self.bng.switch_vehicle(self.vut)
-
-        self._follow_trajectories()
-
-        return self._observe()
-
-    def execute(self, control_mode='user') -> int:
-        '''
-        Execute the test stopping it according to [1] section 8.4.3 pag 21
-        Args:
-            control_mode (string): the control mode to use during the test execution
-                * ``user``: The user has to control the vehicle during the test execution
-        Returns:
-            terminal state:
-                * 1: Test passed successfully
-                * -1: Test failed
-                * 0: No terminal state reached
-        '''
-        exit_condition1 = False
-        exit_condition3 = False
-
-        if control_mode == 'user':  # TODO sometimes no terminal state occurs also if the vut speed goes to zero
-            self._countdown(3)
-            self.bng.pause()
-            ai_disabled = False
-
-            while not any([exit_condition1, exit_condition3]):
-                if keyboard.is_pressed('Space') and not ai_disabled:
-                    self.vut.ai_set_mode('disabled')
-                    self.bng.display_gui_message('AI disabled, now you can control the car')
-                    self.bng.resume()
-                    ai_disabled = True
-                elif not ai_disabled:
-                    self.step(10)
-
-                sensors = self._observe()
-                vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']  # TODO it may be better to use another speed instead the one of the wheel
-                gvt_dmg = sensors['gvt']['damage']['damage']
-
-                if np.isclose(vut_speed, 0, atol=1e-2):  # TODO check if it's possible to compare strictly to 0
-                    exit_condition1 = True
-                    self.bng.pause()
-                elif vut_dmg or gvt_dmg:
-                    exit_condition3 = True
-                    self.bng.pause()
-
-        return self.get_state(self._observe())
-
-    def step(self, steps):
-        """
-        Advances the scenario the given amount of steps.
-        Args:
-            steps (int): The amount of steps to simulate.
-        Returns:
-            A Dictionary with the sensor data from the VUT and GVT.
-        """
-        self.bng.step(steps)
-        observation = self._observe()
-
-        return observation

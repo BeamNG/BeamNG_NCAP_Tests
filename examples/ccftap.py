@@ -1,5 +1,5 @@
 from beamngpy import BeamNGpy
-from beamng_ncap.scenarios import CCFScenario, generate_scenario
+from beamng_ncap.scenarios import CCFTAP, generate_scenario
 
 if __name__ == '__main__':
     beamng = BeamNGpy('localhost', 64256)
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
-    test = CCFScenario(beamng, 20, 55)
+    test = CCFTAP(beamng, 20, 55)
     sensors = test.load()
     test_state = test.execute('user')
 
