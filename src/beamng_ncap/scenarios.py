@@ -739,7 +739,7 @@ class CCRB(CCRScenario):
             self.gvt.ai_set_mode('disabled')
             self._decelerating = True
 
-        if self._decelerating and not self._stationary:
+        if self._decelerating and not self._stationary: # TODO add check of real deceleration
             sensors = self._observe()
             gvt_acc = sensors['gvt']['electrics']['accYSmooth']
             error = self._deceleration - gvt_acc
@@ -753,9 +753,17 @@ class CCRB(CCRScenario):
                 self.gvt.control(throttle=0, brake=0)
                 self._stationary = True
 
-            # print(gvt_acc) # TODO print mean acc and std while braking
-
         return super().step(steps)
+
+    def _get_color_scheme(self):
+        """
+        Select the right color scheme according to the vut speed. 
+        See [1] section 6.1.3 pag 10.
+        """
+        color_scheme = {'tresholds': [1], 
+                        'scores': [1]}
+
+        return color_scheme
 
     def _fix_boundary_conditions(self):
         '''
