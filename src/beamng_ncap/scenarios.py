@@ -146,7 +146,6 @@ class NCAPScenario(ABC):
         Resets the scenario.
         """
         self.bng.restart_scenario()
-        self.load()
 
     @abstractmethod
     def step(self, steps):
@@ -520,7 +519,7 @@ class CCRScenario(CCScenario):
             instance of the contoller TrialControl
         '''
         pid = PID(0.5, 0, 0)
-        controller = TrialControl(0.8, pid)
+        controller = TrialControl(1.5, pid)
 
         return controller
 
