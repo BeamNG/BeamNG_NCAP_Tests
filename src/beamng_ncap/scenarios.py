@@ -52,19 +52,23 @@ def generate_scenario(vut_model: str, gvt_model: str) -> Scenario:
     road3.add_nodes((250, 0, 0, 7), (750, 0, 0, 7))
     scenario.add_road(road3)
 
-    curve1 = Road('track_editor_C_center', rid='ncap_curve1', interpolate=False)
+    curve1 = Road('track_editor_C_center', rid='ncap_curve1',
+                  interpolate=False)
     curve1.add_nodes(*_generate_curve(500, -11.5, 270, 178, -2, 11.5, 7))
     scenario.add_road(curve1)
 
-    curve2 = Road('track_editor_C_center', rid='ncap_curve2', interpolate=False)
+    curve2 = Road('track_editor_C_center', rid='ncap_curve2',
+                  interpolate=False)
     curve2.add_nodes(*_generate_curve(500, -11.5, 90, 182, 2, 11.5, 7))
     scenario.add_road(curve2)
 
-    curve3 = Road('track_editor_C_center', rid='ncap_curve3', interpolate=False)
+    curve3 = Road('track_editor_C_center', rid='ncap_curve3',
+                  interpolate=False)
     curve3.add_nodes(*_generate_curve(500, 11.5, 270, 362, 2, 11.5, 7))
     scenario.add_road(curve3)
 
-    curve4 = Road('track_editor_C_center', rid='ncap_curve4', interpolate=False)
+    curve4 = Road('track_editor_C_center', rid='ncap_curve4',
+                  interpolate=False)
     curve4.add_nodes(*_generate_curve(500, 11.5, 90, -2, -2, 11.5, 7))
     scenario.add_road(curve4)
 
@@ -72,15 +76,18 @@ def generate_scenario(vut_model: str, gvt_model: str) -> Scenario:
     road4.add_nodes((-500, 1000, 0, 7), (-500, -1000, 0, 7))
     scenario.add_road(road4)
 
-    ccrs_waypoint = ScenarioObject('ccr_waypoint', None, 'BeamNGWaypoint', (0, -5000, 0.23), (1, 1, 1), (0, 0, 0, 1))
+    ccrs_waypoint = ScenarioObject('ccr_waypoint', None, 'BeamNGWaypoint',
+                                   (0, -5000, 0.23), (1, 1, 1), (0, 0, 0, 1))
     scenario.add_object(ccrs_waypoint)
 
-    ccftab_waypoint = ScenarioObject('ccftab_waypoint_gvt', None, 'BeamNGWaypoint',
-                                     (500, 1000, 0.23), (1, 1, 1), (0, 0, 1, 0))
+    ccftab_waypoint = ScenarioObject('ccftab_waypoint_gvt', None,
+                                     'BeamNGWaypoint', (500, 1000, 0.23),
+                                     (1, 1, 1), (0, 0, 1, 0))
     scenario.add_object(ccftab_waypoint)
 
-    ccftab_waypoint2 = ScenarioObject('ccftab_waypoint_vut', None, 'BeamNGWaypoint',
-                                      (500, -1000, 0.23), (1, 1, 1), (0, 0, 0, 1))
+    ccftab_waypoint2 = ScenarioObject('ccftab_waypoint_vut', None,
+                                      'BeamNGWaypoint', (500, -1000, 0.23),
+                                      (1, 1, 1), (0, 0, 0, 1))
     scenario.add_object(ccftab_waypoint2)
 
     vut = Vehicle('vut', model=vut_model, licence='VUT')
@@ -100,7 +107,8 @@ def generate_scenario(vut_model: str, gvt_model: str) -> Scenario:
     return scenario
 
 
-def _generate_curve(x: float, y: float, angle_start: float, angle_stop: float, angle_step: float, radius: float,
+def _generate_curve(x: float, y: float, angle_start: float,
+                    angle_stop: float, angle_step: float, radius: float,
                     width: float) -> List[Tuple[float, float, float, float]]:
     x_off = x - radius * np.sin(np.radians(angle_start))
     y_off = y - radius * -np.cos(np.radians(angle_start))
@@ -125,7 +133,8 @@ class NCAPScenario(ABC):
         vut_waypoint (str): Name of the waypoint.
     """
 
-    def __init__(self, bng: BeamNGpy, vut_speed: float, vut_position: Pos, vut_rotation: Quat, vut_waypoint: str):
+    def __init__(self, bng: BeamNGpy, vut_speed: float, vut_position: Pos,
+                 vut_rotation: Quat, vut_waypoint: str):
         self.bng = bng
         self.vut: Vehicle = bng.scenario.get_vehicle('vut')
         # self.vut.set_shift_mode('realistic_automatic')
@@ -173,6 +182,8 @@ class NCAPScenario(ABC):
         Args:
             sensors (dict): The sensor data from both vehicles as a dictionary
                             of dictionaries.
+        Returns:
+            score (int): final score of the test.
         """
         pass
 
@@ -190,15 +201,14 @@ class CCScenario(NCAPScenario):
         gvt_waypoint (str): Name of the waypoint.
     """
 
-    def __init__(self, bng: BeamNGpy, vut_speed: float, vut_position: Pos, vut_rotation: Quat,
-                 vut_waypoint: str, gvt_speed: float, gvt_position: Pos, gvt_rotation: Quat,
-                 gvt_waypoint: str):
+    def __init__(self, bng: BeamNGpy, vut_speed: float, vut_position: Pos,
+                 vut_rotation: Quat, vut_waypoint: str, gvt_speed: float,
+                 gvt_position: Pos, gvt_rotation: Quat, gvt_waypoint: str):
         super().__init__(bng, vut_speed, vut_position, vut_rotation,
                          vut_waypoint)
 
         self._vut_speed_ai = (vut_speed + 3.6 + 1)/3.6
         # + 3.6 ) / is a workaround for the ai to reach the given speed
-        # added a + 1 to reach a speed higher than the gvt a do not stop the ccrb test
         # TODO: investigate how to get the AI to do that without this hack
 
         self.gvt: Vehicle = bng.scenario.get_vehicle('gvt')
@@ -209,7 +219,8 @@ class CCScenario(NCAPScenario):
         self._gvt_rotation = gvt_rotation
         self._gvt_waypoint = gvt_waypoint
 
-    def _teleport_vehicle(self, vehicle: Vehicle, position: Pos, rotation: Quat | None = None):
+    def _teleport_vehicle(self, vehicle: Vehicle, position: Pos,
+                          rotation: Quat | None = None):
         """
         Teleports the given vehicle to the given position with the given
         rotation.
@@ -217,7 +228,8 @@ class CCScenario(NCAPScenario):
             vehicle (beamngpy.Vehicle): The vehicle to teleport.
             position (tuple) The target position as an (x, y, z) tuple
                              containing world-space coordinates.
-            rotation (tuple): Optional tuple specifying the rotation as a quaternion.
+            rotation (tuple): Optional tuple specifying the rotation as
+                              a quaternion.
         Notes:
             This method is a workaround that ignores the refnode of the vehicle
             and uses the center of the boundingbox instead.
@@ -261,7 +273,9 @@ class CCScenario(NCAPScenario):
         """
         vut_speed = 0
         gvt_speed = 0
-        while not self._cars_reached_speed(vut_speed, gvt_speed): # TODO add also ttc check
+
+        # TODO add also ttc check
+        while not self._cars_reached_speed(vut_speed, gvt_speed):
             self.bng.step(10)
             observation = self._observe()
             vut_speed = observation['vut']['electrics']['wheelspeed']
@@ -299,17 +313,19 @@ class CCScenario(NCAPScenario):
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed:  # TODO check if it's possible to compare strictly to 0
+        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed:
             return 1
 
         return 0
 
     def _countdown(self, seconds: int):
         self.bng.pause()
-        self.bng.display_gui_message('When the game restarts you can take control of the car pressing SPACE')
+        self.bng.display_gui_message('When the game restarts you can take '
+                                     + 'control of the car pressing SPACE')
         time.sleep(3)
         for s in range(seconds, 0, -1):
-            self.bng.display_gui_message(f'Get ready! The game will restart in {s} seconds.')
+            self.bng.display_gui_message('Get ready! The game will restart '
+                                         + f'in {s} seconds.')
             time.sleep(1)
         self.bng.display_gui_message(f'Go!')
         self.bng.resume()
@@ -320,7 +336,8 @@ class CCRScenario(CCScenario):
     Base class for the car to car rear scenarios.
     """
 
-    def __init__(self, bng: BeamNGpy, vut_speed: float, gvt_speed: float, distance: float, overlap: float = 1.0):
+    def __init__(self, bng: BeamNGpy, vut_speed: float, gvt_speed: float,
+                 distance: float, overlap: float = 1.0):
         """
         Args:
             bng (:class:`.BeamNGpy`): BeamNGpy instance.
@@ -330,9 +347,9 @@ class CCRScenario(CCScenario):
             overlap (float): Percentage of the width of the VUT overlapping
                              the GVT.
         """
-        super().__init__(bng, vut_speed, (0, 0, 0), (0, 0, 0, 1), 'ccr_waypoint',
-                         gvt_speed, (0, -1000, 0.21), (0, 0, 0, 1),
-                         'ccr_waypoint')
+        super().__init__(bng, vut_speed, (0, 0, 0), (0, 0, 0, 1),
+                         'ccr_waypoint', gvt_speed, (0, -1000, 0.21),
+                         (0, 0, 0, 1), 'ccr_waypoint')
         self._overlap = overlap / 100
         self._initial_distance = 100
         self._distance = distance
@@ -360,18 +377,20 @@ class CCRScenario(CCScenario):
         return self._observe()
 
     def execute(self, control_mode='user') -> int:
-        '''
-        Execute the test stopping it according to [1] section 8.4.3 pag 21
+        """
+        Execute the test stopping it according to [1] section 8.4.3 pag 21.
         Args:
-            control_mode (string): the control mode to use during the test execution
-                * ``user``: The user has to control the vehicle during the test execution
-                * ``trial``: The test is performed using TrialControl
+            control_mode (string): the control mode to use during the test
+                                   execution.
+                * ``user``: The user has to control the vehicle during
+                            the test execution.
+                * ``trial``: The test is performed using TrialControl.
         Returns:
             terminal state:
                 * 1: Test passed successfully
                 * -1: Test failed
                 * 0: No terminal state reached
-        '''
+        """
         exit_condition1 = False
         exit_condition2 = False
         exit_condition3 = False
@@ -384,11 +403,13 @@ class CCRScenario(CCScenario):
             while not any([exit_condition1, exit_condition2, exit_condition3]):
                 if keyboard.is_pressed('Space') and not ai_disabled:
                     self.vut.ai_set_mode('disabled')
-                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.display_gui_message('AI disabled, now '
+                                                 + 'you can control the car')
                     self.bng.resume()
                     ai_disabled = True
                 elif not ai_disabled:
-                    self.step(1) # need 1 step to compute precisely the impact speed
+                    # need 1 step to compute precisely the impact speed
+                    self.step(1)
 
                 sensors = self._observe()
 
@@ -397,7 +418,7 @@ class CCRScenario(CCScenario):
                 gvt_dmg = sensors['gvt']['damage']['damage']
                 gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2): 
+                if np.isclose(vut_speed, 0, atol=1e-2):
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_speed < gvt_speed:
@@ -410,16 +431,18 @@ class CCRScenario(CCScenario):
         else:
             controllers_dict = {'trial': self._get_trial_controller}
             actuation_dict = {'trial': self._actuate_trial_controller}
-            controller = controllers_dict[control_mode]()
+            ctrl = controllers_dict[control_mode]()
 
             while not any([exit_condition1, exit_condition2, exit_condition3]):
                 self.step(10)
 
-                steering, throttle, brake = actuation_dict[control_mode](controller)
+                steering, throttle, brake = actuation_dict[control_mode](ctrl)
 
                 if any([steering, throttle, brake]):
                     self.vut.ai_set_mode('disabled')
-                    self.vut.control(steering=steering, throttle=throttle, brake=brake)
+                    self.vut.control(steering=steering,
+                                     throttle=throttle,
+                                     brake=brake)
 
                 sensors = self._observe()
 
@@ -497,7 +520,8 @@ class CCRScenario(CCScenario):
 
         position = point_front + self._initial_distance * dv
 
-        self.gvt.poll_sensors()  # sensors have to be polled once so the vehicle state gets populated
+        # sensors have to be polled once so the vehicle state gets populated
+        self.gvt.poll_sensors()
         position[2] = self.gvt.state['pos'][2]
 
         self.vut.teleport(list(position), self._vut_rotation)
@@ -513,24 +537,24 @@ class CCRScenario(CCScenario):
         self.vut.teleport(list(position + offset), self._vut_rotation)
 
     def _get_trial_controller(self):
-        '''
+        """
         Define the TrialControl used to perform the test
         Returns:
             instance of the contoller TrialControl
-        '''
+        """
         pid = PID(0.5, 0, 0)
         controller = TrialControl(1.5, pid)
 
         return controller
 
     def _actuate_trial_controller(self, controller: TrialControl) -> tuple:
-        '''
+        """
         Actuation routing for the TrialControl.
         Args:
             controller (TrialControl): instance of the controller
         Returns:
             tuple containing sterring, throttle and brake
-        '''
+        """
         observation = self._observe()
         vut_speed = observation['vut']['electrics']['wheelspeed']
         controller.get_target_distance(vut_speed)
@@ -547,6 +571,8 @@ class CCRScenario(CCScenario):
         Args:
             sensors (dict): The sensor data from both vehicles as a dictionary
                             of dictionaries.
+        Returns:
+            score (int): final score of the test.
         """
         vut_speed = sensors['vut']['electrics']['wheelspeed']*3.6
         gvt_speed = sensors['gvt']['electrics']['wheelspeed']*3.6
@@ -561,14 +587,14 @@ class CCRScenario(CCScenario):
         return score
 
     def _fix_boundary_conditions(self):
-        '''
+        """
         Fix the boundary conditions according to [1] section 8.4.2 pag 20
-        '''
+        """
         pass
 
     def _get_color_scheme(self):
         """
-        Select the right color scheme according to the vut speed. 
+        Select the right color scheme according to the vut speed.
         See [1] section 6.1.3 pag 9.
         """
         pass
@@ -596,27 +622,27 @@ class CCRS(CCRScenario):
 
     def _get_color_scheme(self):
         """
-        Select the right color scheme according to the vut speed. 
+        Select the right color scheme according to the vut speed.
         See [1] section 6.1.3 pag 9.
         """
-        color_scheme_50 = {'tresholds': [40, 30, 15, 5], 
+        color_scheme_50 = {'tresholds': [40, 30, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_45 = {'tresholds': [35, 25, 15, 5], 
+        color_scheme_45 = {'tresholds': [35, 25, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_40 = {'tresholds': [35, 25, 15, 5], 
+        color_scheme_40 = {'tresholds': [35, 25, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_35 = {'tresholds': [25, 15, 5], 
+        color_scheme_35 = {'tresholds': [25, 15, 5],
                            'scores': [0.5, 0.75, 1]}
-        color_scheme_30 = {'tresholds': [25, 15, 5], 
+        color_scheme_30 = {'tresholds': [25, 15, 5],
                            'scores': [0.5, 0.75, 1]}
-        color_scheme_25 = {'tresholds': [15, 5], 
+        color_scheme_25 = {'tresholds': [15, 5],
                            'scores': [0.5, 1]}
-        color_scheme_20 = {'tresholds': [1], 
+        color_scheme_20 = {'tresholds': [1],
                            'scores': [1]}
-        color_scheme_15 = {'tresholds': [1], 
+        color_scheme_15 = {'tresholds': [1],
                            'scores': [1]}
-        color_scheme_10 = {'tresholds': [1], 
-                          'scores': [1]}
+        color_scheme_10 = {'tresholds': [1],
+                           'scores': [1]}
 
         color_schemes = {'50': color_scheme_50,
                          '45': color_scheme_45,
@@ -653,30 +679,30 @@ class CCRM(CCRScenario):
 
     def _get_color_scheme(self):
         """
-        Select the right color scheme according to the vut speed. 
+        Select the right color scheme according to the vut speed.
         See [1] section 6.1.3 pag 10.
         """
-        color_scheme_80 = {'tresholds': [50, 35, 20, 5], 
+        color_scheme_80 = {'tresholds': [50, 35, 20, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_75 = {'tresholds': [45, 30, 15, 5], 
+        color_scheme_75 = {'tresholds': [45, 30, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_70 = {'tresholds': [40, 30, 15, 5], 
+        color_scheme_70 = {'tresholds': [40, 30, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_65 = {'tresholds': [35, 25, 15, 5], 
+        color_scheme_65 = {'tresholds': [35, 25, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_60 = {'tresholds': [35, 25, 15, 5], 
+        color_scheme_60 = {'tresholds': [35, 25, 15, 5],
                            'scores': [0.25, 0.5, 0.75, 1]}
-        color_scheme_55 = {'tresholds': [25, 15, 5], 
+        color_scheme_55 = {'tresholds': [25, 15, 5],
                            'scores': [0.5, 0.75, 1]}
-        color_scheme_50 = {'tresholds': [25, 15, 5], 
+        color_scheme_50 = {'tresholds': [25, 15, 5],
                            'scores': [0.5, 0.75, 1]}
-        color_scheme_45 = {'tresholds': [15, 5], 
+        color_scheme_45 = {'tresholds': [15, 5],
                            'scores': [0.5, 1]}
-        color_scheme_40 = {'tresholds': [15, 5], 
+        color_scheme_40 = {'tresholds': [15, 5],
                            'scores': [0.5, 1]}
-        color_scheme_35 = {'tresholds': [5], 
+        color_scheme_35 = {'tresholds': [5],
                            'scores': [1]}
-        color_scheme_30 = {'tresholds': [5], 
+        color_scheme_30 = {'tresholds': [5],
                            'scores': [1]}
 
         color_schemes = {'80': color_scheme_80,
@@ -733,12 +759,12 @@ class CCRB(CCRScenario):
         Returns:
             A Dictionary with the sensor data from the VUT and GVT.
         """
-
         if not self._decelerating:
             self.gvt.ai_set_mode('disabled')
             self._decelerating = True
 
-        if self._decelerating and not self._stationary: # TODO add check of real deceleration
+        # TODO add check of real deceleration
+        if self._decelerating and not self._stationary:
             sensors = self._observe()
             gvt_acc = sensors['gvt']['electrics']['accYSmooth']
             error = self._deceleration - gvt_acc
@@ -756,19 +782,19 @@ class CCRB(CCRScenario):
 
     def _get_color_scheme(self):
         """
-        Select the right color scheme according to the vut speed. 
+        Select the right color scheme according to the vut speed.
         See [1] section 6.1.3 pag 10.
         """
-        color_scheme = {'tresholds': [1], 
+        color_scheme = {'tresholds': [1],
                         'scores': [1]}
 
         return color_scheme
 
     def _fix_boundary_conditions(self):
-        '''
-        Fix the relative distance between VUT and GVT according to [1] section 8.4.2 pag 20
-        '''
-
+        """
+        Fix the relative distance between VUT and GVT according to [1]
+        section 8.4.2 pag 20.
+        """
         dist_diff = self._get_distance() - self._distance
 
         if not np.isclose(dist_diff, 0, atol=0.5):
@@ -807,11 +833,16 @@ class CCFScenario(CCScenario):
             gvt_speed (float): Speed of the GVT in km/h.
             distance (float): Distance between the Cars in m.
         """
-        super().__init__(bng, vut_speed, (500 - 1.75, self._vut_start_y, 0.21), (0, 0, 0, 1), 'ccftab_waypoint_vut',
-                         gvt_speed, (500 + 1.75, self._gvt_start_y, 0.21), (0, 0, 1, 0),
-                         'ccftab_waypoint_gvt')
+        super().__init__(bng, vut_speed,
+                         (500 - 1.75, self._vut_start_y, 0.21),
+                         (0, 0, 0, 1), 'ccftab_waypoint_vut',
+                         gvt_speed, (500 + 1.75, self._gvt_start_y, 0.21),
+                         (0, 0, 1, 0), 'ccftab_waypoint_gvt')
 
     def _follow_trajectories(self):
+        """
+        Make the AIs follow the given trajectories until ttc is <= 4.
+        """
         vut_script = self._define_vut_trajectory()
         gvt_script = self._define_gvt_trajectory()
         self.vut.ai_set_script(vut_script)
@@ -821,6 +852,11 @@ class CCFScenario(CCScenario):
             self.bng.step(10)
 
     def _ttc(self) -> float:
+        """
+        Evaluate the time to collision
+        Returns:
+            ttc (float): time to collision in seconds.
+        """
         vut_bbox = self.vut.get_bbox()
         vut_c_a = np.array(vut_bbox['front_bottom_left'])
         vut_c_b = np.array(vut_bbox['front_bottom_right'])
@@ -859,17 +895,19 @@ class CCFScenario(CCScenario):
         return self._observe()
 
     def execute(self, control_mode='user') -> int:
-        '''
+        """
         Execute the test stopping it according to [1] section 8.4.3 pag 21
         Args:
-            control_mode (string): the control mode to use during the test execution
-                * ``user``: The user has to control the vehicle during the test execution
+            control_mode (string): the control mode to use during the test
+                                   execution.
+                * ``user``: The user has to control the vehicle during the
+                            test execution.
         Returns:
             terminal state:
                 * 1: Test passed successfully
                 * -1: Test failed
                 * 0: No terminal state reached
-        '''
+        """
         exit_condition1 = False
         exit_condition3 = False
 
@@ -881,7 +919,8 @@ class CCFScenario(CCScenario):
             while not any([exit_condition1, exit_condition3]):
                 if keyboard.is_pressed('Space') and not ai_disabled:
                     self.vut.ai_set_mode('disabled')
-                    self.bng.display_gui_message('AI disabled, now you can control the car')
+                    self.bng.display_gui_message('AI disabled,' +
+                                                 'now you can control the car')
                     self.bng.resume()
                     ai_disabled = True
                 elif not ai_disabled:
@@ -901,7 +940,7 @@ class CCFScenario(CCScenario):
 
         state = self.get_state(sensors)
         score = self.get_score(state)
-        
+
         return state, score
 
     def step(self, steps):
@@ -936,19 +975,22 @@ class CCFTAP(CCFScenario):
 
         # TODO better trajectories synchronisation needed
         self._vut_start_y = 40
-        self._gvt_start_y = - int((self._vut_start_y - (gvt_speed - vut_speed)*vut_speed/gvt_speed)/vut_speed*gvt_speed)
+        self._gvt_start_y = - int((self._vut_start_y
+                                   - (gvt_speed - vut_speed)
+                                   * vut_speed / gvt_speed)
+                                  / vut_speed * gvt_speed)
 
         super(CCFTAP, self).__init__(bng, vut_speed, gvt_speed)
 
-    def _define_vut_trajectory(self, debug: bool=False) -> list:
-        '''
+    def _define_vut_trajectory(self, debug: bool = False) -> list:
+        """
         Define the trajectory for the vut vehicle
         Args:
             debug (bool): if `True` display the trajectory.
         Returns:
-            script (list): list containing the nodes described as dictionary 
-                           with the fields: 'x', 'y', 'z' amnd 't'    
-        '''
+            script (list): list containing the nodes described as dictionary
+                           with the fields: 'x', 'y', 'z' amnd 't'.
+        """
         match self._vut_speed*3.6:
             case 10:
                 alpha = np.deg2rad(20.62)
@@ -967,10 +1009,15 @@ class CCFTAP(CCFScenario):
         x_clothoid = []
         y_clothoid = []
 
-        for l in range(int(L)):
-            x_clothoid.append(l - l**5/(40*(r2*L)**2) + l**9/(3465*(r2*L)**4) - l**13/(599040*(r2*L)**6))
-            y_clothoid.append(l**3/(6*(r2*L)) - l**7/(336*(r2*L)**3) + l**11/(42240*(r2*L)**5) - l**15/(9676800*(r2*L)**7))
-        
+        for i in range(int(L)):
+            x_clothoid.append(i - i**5/(40*(r2*L)**2)
+                              + i**9/(3465*(r2*L)**4)
+                              - i**13/(599040*(r2*L)**6))
+            y_clothoid.append(i**3/(6*(r2*L))
+                              - i**7/(336*(r2*L)**3)
+                              + i**11/(42240*(r2*L)**5)
+                              - i**15/(9676800*(r2*L)**7))
+
         x_part2 = 2*r2*np.sin(beta/2)/np.sqrt(2)
         y_clothoid1 = - 1.75 + x_clothoid[-1] + y_clothoid[-1] + x_part2
         y_constant_radius = - 1.75 + y_clothoid[-1] + x_part2
@@ -1003,9 +1050,11 @@ class CCFTAP(CCFScenario):
             elif y < y_clothoid1 and y > y_constant_radius:
                 if clothoid_index1 == 0:
                     start_y = script[-1]['y']
-                delta_y = script[-1]['y'] - (start_y - x_clothoid[clothoid_index1])
+                delta_y = script[-1]['y'] - (start_y
+                                             - x_clothoid[clothoid_index1])
                 y -= delta_y
-                node = {'x': self._vut_position[0] + y_clothoid[clothoid_index1],
+                node = {'x': self._vut_position[0]
+                        + y_clothoid[clothoid_index1],
                         'y': start_y - x_clothoid[clothoid_index1],
                         'z': 0.21,
                         't': t}
@@ -1027,7 +1076,7 @@ class CCFTAP(CCFScenario):
 
                 constant_radius_index += 2
                 y -= delta_y
-            
+
             if y <= y_clothoid[-1] - 1.75:
                 start_x = script[-1]['x']
                 start_y = script[-1]['y']
@@ -1036,25 +1085,29 @@ class CCFTAP(CCFScenario):
                     t = i/self._vut_speed
 
                     if j < x_clothoid[-1]:
-                        node = {'x': start_x + x_clothoid[-1] - x_clothoid[-j-1],
-                                'y': start_y - y_clothoid[-1] + y_clothoid[-j-1],
+                        node = {'x': start_x + x_clothoid[-1]
+                                - x_clothoid[-j-1],
+                                'y': start_y - y_clothoid[-1]
+                                + y_clothoid[-j-1],
                                 'z': 0.21,
                                 't': t}
                         script.append(node)
                         points.append([node['x'], node['y'], node['z']])
 
                     else:
-                        node = {'x': self._vut_position[0] + y_clothoid[-1] + x_part2 + j,
+                        node = {'x': self._vut_position[0] + y_clothoid[-1]
+                                + x_part2 + j,
                                 'y': script[-1]['y'],  # TODO y != -1.75
                                 'z': 0.21,
                                 't': t}
                         script.append(node)
                         points.append([node['x'], node['y'], node['z']])
 
-                    sphere_coordinates.append([node['x'], node['y'], node['z']])
+                    sphere_coordinates.append([node['x'], node['y'],
+                                              node['z']])
                     sphere_radii.append(0.1)
                     sphere_colors.append([1, 0, 0, 0.8])
-                    
+
                 break
 
             sphere_coordinates.append([node['x'], node['y'], node['z']])
@@ -1063,20 +1116,21 @@ class CCFTAP(CCFScenario):
 
         if debug:
             self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
-                              sphere_colors, cling=True, offset=0.1)
-            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
-        
+                                       sphere_colors, cling=True, offset=0.1)
+            self.bng.add_debug_polyline(points, point_color,
+                                        cling=True, offset=0.1)
+
         return script
 
-    def _define_gvt_trajectory(self, debug: bool=False) -> list:
-        '''
+    def _define_gvt_trajectory(self, debug: bool = False) -> list:
+        """
         Define the trajectory for the gvt vehicle
         Args:
             debug (bool): if `True` display the trajectory.
         Returns:
-            script (list): list containing the nodes described as dictionary 
-                           with the fields: 'x', 'y', 'z' amnd 't'    
-        '''
+            script (list): list containing the nodes described as dictionary
+                           with the fields: 'x', 'y', 'z' amnd 't'.
+        """
         script = []
         points = []
         point_color = [0, 0, 0, 0.1]
@@ -1101,18 +1155,20 @@ class CCFTAP(CCFScenario):
 
         if debug:
             self.bng.add_debug_spheres(sphere_coordinates, sphere_radii,
-                              sphere_colors, cling=True, offset=0.1)
-            self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
-        
+                                       sphere_colors, cling=True, offset=0.1)
+            self.bng.add_debug_polyline(points, point_color,
+                                        cling=True, offset=0.1)
+
         return script
 
     def get_score(self, state) -> int:
         """
         Returns the score of the test.
         Args:
-            state (int): The sensor data from both vehicles as a dictionary
-                            of dictionaries.
+            state (int): final state of the test.
+        Returns:
+            score (int): final score of the test.
         """
         score = 1 if state == 1 else 0
-        
+
         return score
