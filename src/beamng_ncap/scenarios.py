@@ -900,8 +900,9 @@ class CCFScenario(CCScenario):
                     self.bng.pause()
 
         state = self.get_state(sensors)
+        score = self.get_score(state)
         
-        return state
+        return state, score
 
     def step(self, steps):
         """
@@ -1104,3 +1105,14 @@ class CCFTAP(CCFScenario):
             self.bng.add_debug_polyline(points, point_color, cling=True, offset=0.1)
         
         return script
+
+    def get_score(self, state) -> int:
+        """
+        Returns the score of the test.
+        Args:
+            state (int): The sensor data from both vehicles as a dictionary
+                            of dictionaries.
+        """
+        score = 1 if state == 1 else 0
+        
+        return score
