@@ -20,7 +20,7 @@ if __name__ == '__main__':
     test = CCRS(beamng, vut_speed, overlap=overlap)
 
     sensors = test.load()
-    test_state = test.execute('user')
+    test_state, test_score = test.execute('user')
 
     if test_state == 1:
         print('Test passed successfully')
@@ -28,3 +28,5 @@ if __name__ == '__main__':
         print('Test failed')
     else:
         print('No terminal state reached')
+
+    print(f'Score: {test_score}')

@@ -18,7 +18,7 @@ if __name__ == '__main__':
     vut_speed = 80  # 10, 15, 20, 25, 30, 35, 40, 45 or 50 km/h
     test = CCRM(beamng, vut_speed, overlap=100)
     sensors = test.load()
-    test_state = test.execute('trial')
+    test_state, test_score = test.execute('user')
 
     if test_state == 1:
         print('Test passed successfully')
@@ -26,3 +26,5 @@ if __name__ == '__main__':
         print('Test failed')
     else:
         print('No terminal state reached')
+
+    print(f'Score: {test_score}')

@@ -1,8 +1,8 @@
 from beamngpy import BeamNGpy
-from beamng_ncap.scenarios import CCFScenario, generate_scenario
+from beamng_ncap.scenarios import CCFTAP, generate_scenario
 
 if __name__ == '__main__':
-    beamng = BeamNGpy('localhost', 64256)
+    beamng = BeamNGpy('localhost')
     beamng.open()
     scenario = generate_scenario('etk800', 'etk800')
     scenario.make(beamng)
@@ -13,9 +13,9 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
-    test = CCFScenario(beamng, 20, 55)
+    test = CCFTAP(beamng, 20, 55)
     sensors = test.load()
-    test_state = test.execute('user')
+    test_state, test_score = test.execute('user')
 
     if test_state == 1:
         print('Test passed successfully')
@@ -23,3 +23,5 @@ if __name__ == '__main__':
         print('Test failed')
     else:
         print('No terminal state reached')
+
+    print(f'Score: {test_score}')
