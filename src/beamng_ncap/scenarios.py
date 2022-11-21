@@ -137,7 +137,6 @@ class NCAPScenario(ABC):
                  vut_rotation: Quat, vut_waypoint: str):
         self.bng = bng
         self.vut: Vehicle = bng.scenario.get_vehicle('vut')
-        # self.vut.set_shift_mode('realistic_automatic')
         self._vut_speed = vut_speed / 3.6
         self._vut_position = vut_position
         self._vut_rotation = vut_rotation
@@ -212,7 +211,6 @@ class CCScenario(NCAPScenario):
         # TODO: investigate how to get the AI to do that without this hack
 
         self.gvt: Vehicle = bng.scenario.get_vehicle('gvt')
-        # self.gvt.set_shift_mode('realistic_automatic')
         self._gvt_speed = gvt_speed / 3.6
         self._gvt_speed_ai = (gvt_speed + 3.6) / 3.6
         self._gvt_position = gvt_position
@@ -274,8 +272,7 @@ class CCScenario(NCAPScenario):
         vut_speed = 0
         gvt_speed = 0
 
-        # TODO add also ttc check
-        while not self._cars_reached_speed(vut_speed, gvt_speed):
+        while not self._cars_reached_speed(vut_speed, gvt_speed) or self._ttc() > 4:
             self.bng.step(10)
             observation = self._observe()
             vut_speed = observation['vut']['electrics']['wheelspeed']
@@ -481,6 +478,22 @@ class CCRScenario(CCScenario):
 
         return np.linalg.norm(np.cross(vut_c - gvt_p, gvt_dv)) / \
             np.linalg.norm(gvt_dv)
+
+    def _ttc(self):
+        """
+        Evaluate the time to collision
+        Returns:
+            ttc (float): time to collision in seconds.
+        """
+        distance = self._get_distance()
+        sensors = self._observe()
+        vut_speed = sensors['vut']['electrics']['wheelspeed']
+        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        relative_speed = vut_speed - gvt_speed
+        relative_speed = 1 if relative_speed == 0 else relative_speed
+
+        return distance/relative_speed
+
 
     def step(self, steps):
         """
@@ -751,6 +764,19 @@ class CCRB(CCRScenario):
         self._decelerating = False
         super().reset()
 
+    def _accelerate_cars(self):
+        """
+        Accelerates the VUT and GVT to the desired speed.
+        """
+        vut_speed = 0
+        gvt_speed = 0
+
+        while not self._cars_reached_speed(vut_speed, gvt_speed):
+            self.bng.step(10)
+            observation = self._observe()
+            vut_speed = observation['vut']['electrics']['wheelspeed']
+            gvt_speed = observation['gvt']['electrics']['wheelspeed']
+
     def step(self, steps):
         """
         Advances the scenario the given amount of steps.
@@ -763,7 +789,6 @@ class CCRB(CCRScenario):
             self.gvt.ai_set_mode('disabled')
             self._decelerating = True
 
-        # TODO add check of real deceleration
         if self._decelerating and not self._stationary:
             sensors = self._observe()
             gvt_acc = sensors['gvt']['electrics']['accYSmooth']
