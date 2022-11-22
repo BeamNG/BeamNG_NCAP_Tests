@@ -266,6 +266,28 @@ class CCScenario(NCAPScenario):
 
         return observation
 
+    def _get_speeds(self, poll=True) -> tuple[float, float]:
+        """
+        Returns the velocities of the vut and gvt vehicles from the state attribute.
+        Args:
+            poll (bool): if true re-poll data.
+        Returns:
+            vut_speed (float): vut_speed in m/s.
+            gvt_speed (float): gvt_speed in m/s.
+        """
+        if poll:
+            self.vut.poll_sensors()
+            self.gvt.poll_sensors()
+
+        vut_speed = np.sqrt((self.vut.state['vel'][0])**2
+                            + (self.vut.state['vel'][1])**2
+                            + (self.vut.state['vel'][2])**2)
+        gvt_speed = np.sqrt((self.gvt.state['vel'][0])**2
+                            + (self.gvt.state['vel'][1])**2
+                            + (self.gvt.state['vel'][2])**2)
+
+        return vut_speed, gvt_speed
+
     def _accelerate_cars(self):
         """
         Accelerates the VUT and GVT to the desired speed.
@@ -275,9 +297,7 @@ class CCScenario(NCAPScenario):
 
         while not self._cars_reached_speed(vut_speed, gvt_speed) or self._ttc() > 4:
             self.bng.step(10)
-            observation = self._observe()
-            vut_speed = observation['vut']['electrics']['wheelspeed']
-            gvt_speed = observation['gvt']['electrics']['wheelspeed']
+            vut_speed, gvt_speed = self._get_speeds()
 
     def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
         """
@@ -304,14 +324,13 @@ class CCScenario(NCAPScenario):
             See [1], page 21, section 8.4.3
         """
         vut_dmg = sensors['vut']['damage']['damage']
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
         gvt_dmg = sensors['gvt']['damage']['damage']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
 
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed:
+        if np.isclose(vut_speed, 0, atol=1e-1) or vut_speed < gvt_speed:
             return 1
 
         return 0
@@ -392,7 +411,6 @@ class CCRScenario(CCScenario):
         exit_condition1 = False
         exit_condition2 = False
         exit_condition3 = False
-
         self.boundary_conditions = {'vut_speed': [],
                                     'gvt_speed': [],
                                     'vut_x': [],
@@ -418,12 +436,10 @@ class CCRScenario(CCScenario):
                 elif not ai_disabled:
                     # need 1 step to compute precisely the impact speed
                     self.step(1)
-                    sensors = self._observe()
-                    gvt_speed = np.sqrt((self.vut.state['vel'][0]*3.6)**2 + (self.vut.state['vel'][1]*3.6)**2 + (self.vut.state['vel'][2]*3.6)**2)
-                    vut_speed = np.sqrt((self.vut.state['vel'][0]*3.6)**2 + (self.vut.state['vel'][1]*3.6)**2 + (self.vut.state['vel'][2]*3.6)**2)
+                    vut_speed, gvt_speed = self._get_speeds()
                     vut_x = self.vut.state['pos'][0]
                     vut_y = self.vut.state['pos'][1]
-                    gvt_y = self.vut.state['pos'][1]
+                    gvt_y = self.gvt.state['pos'][1]
                     self.boundary_conditions['vut_speed'].append(vut_speed)
                     self.boundary_conditions['gvt_speed'].append(gvt_speed)
                     self.boundary_conditions['vut_x'].append(vut_x)
@@ -431,13 +447,11 @@ class CCRScenario(CCScenario):
                     self.boundary_conditions['gvt_y'].append(gvt_y)
 
                 sensors = self._observe()
-
+                vut_speed, gvt_speed = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
-                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2):
+                if np.isclose(vut_speed, 0, atol=1e-1):
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_speed < gvt_speed:
@@ -446,7 +460,6 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3 = True
                     self.bng.pause()
-            print(self.boundary_conditions)
 
         else:
             controllers_dict = {'trial': self._get_trial_controller}
@@ -465,11 +478,9 @@ class CCRScenario(CCScenario):
                                      brake=brake)
 
                 sensors = self._observe()
-
+                vut_speed, gvt_speed = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
-                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
                 if np.isclose(vut_speed, 0, atol=1e-2):
                     exit_condition1 = True
