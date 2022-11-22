@@ -15,6 +15,7 @@ References:
 
 .. moduleauthor:: Sedonas <https://github.com/Sedonas>
 .. moduleauthor:: Marc Müller <mmueller@beamng.gmbh>
+.. moduleauthor:: Mattia Vicari <mvicari@beamng.gmbh>
 """
 
 from abc import ABC, abstractmethod
@@ -392,6 +393,16 @@ class CCRScenario(CCScenario):
         exit_condition2 = False
         exit_condition3 = False
 
+        self.boundary_conditions = {'vut_speed': [],
+                                    'gvt_speed': [],
+                                    'vut_x': [],
+                                    'vut_y': [],
+                                    'gvt_y': [],
+                                    'relative_distance': [],
+                                    'vut_yaw_velocity': [],
+                                    'gvt_yaw_velocity': [],
+                                    'steering_wheel_velocity': []}
+
         if control_mode == 'user':
             self._countdown(3)
             self.bng.pause()
@@ -407,6 +418,17 @@ class CCRScenario(CCScenario):
                 elif not ai_disabled:
                     # need 1 step to compute precisely the impact speed
                     self.step(1)
+                    sensors = self._observe()
+                    gvt_speed = np.sqrt((self.vut.state['vel'][0]*3.6)**2 + (self.vut.state['vel'][1]*3.6)**2 + (self.vut.state['vel'][2]*3.6)**2)
+                    vut_speed = np.sqrt((self.vut.state['vel'][0]*3.6)**2 + (self.vut.state['vel'][1]*3.6)**2 + (self.vut.state['vel'][2]*3.6)**2)
+                    vut_x = self.vut.state['pos'][0]
+                    vut_y = self.vut.state['pos'][1]
+                    gvt_y = self.vut.state['pos'][1]
+                    self.boundary_conditions['vut_speed'].append(vut_speed)
+                    self.boundary_conditions['gvt_speed'].append(gvt_speed)
+                    self.boundary_conditions['vut_x'].append(vut_x)
+                    self.boundary_conditions['vut_y'].append(vut_y)
+                    self.boundary_conditions['gvt_y'].append(gvt_y)
 
                 sensors = self._observe()
 
@@ -424,6 +446,7 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3 = True
                     self.bng.pause()
+            print(self.boundary_conditions)
 
         else:
             controllers_dict = {'trial': self._get_trial_controller}
