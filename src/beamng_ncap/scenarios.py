@@ -415,11 +415,12 @@ class CCRScenario(CCScenario):
                                     'gvt_speed': [],
                                     'vut_x': [],
                                     'vut_y': [],
+                                    'gvt_x': [],
                                     'gvt_y': [],
                                     'relative_distance': [],
                                     'vut_yaw_velocity': [],
                                     'gvt_yaw_velocity': [],
-                                    'steering_wheel_velocity': []}
+                                    'vut_steering': []}
 
         if control_mode == 'user':
             self._countdown(3)
@@ -436,15 +437,20 @@ class CCRScenario(CCScenario):
                 elif not ai_disabled:
                     # need 1 step to compute precisely the impact speed
                     self.step(1)
-                    vut_speed, gvt_speed = self._get_speeds()
+                    sensors = self._observe()
+                    vut_speed, gvt_speed = self._get_speeds(poll=False)
                     vut_x = self.vut.state['pos'][0]
                     vut_y = self.vut.state['pos'][1]
+                    gvt_x = self.gvt.state['pos'][0]
                     gvt_y = self.gvt.state['pos'][1]
+                    vut_steering = sensors['vut']['electrics']['steering']
                     self.boundary_conditions['vut_speed'].append(vut_speed)
                     self.boundary_conditions['gvt_speed'].append(gvt_speed)
                     self.boundary_conditions['vut_x'].append(vut_x)
                     self.boundary_conditions['vut_y'].append(vut_y)
+                    self.boundary_conditions['gvt_x'].append(gvt_x)
                     self.boundary_conditions['gvt_y'].append(gvt_y)
+                    self.boundary_conditions['vut_steering'].append(vut_steering)
 
                 sensors = self._observe()
                 vut_speed, gvt_speed = self._get_speeds()
@@ -489,10 +495,38 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3
 
+        self._check_boundary_conditions()
         score = self.get_score(sensors)
         state = self.get_state(sensors)
 
         return state, score
+
+    def _check_boundary_conditions(self) -> None:
+        """
+        Check if all the bounday conditions described in [1] section 8.4.2 pag 20 are met.
+        Print only if one or more conditions aren't respected.
+        """
+        vut_speed = True
+        gvt_speed = True
+        vut_path = True
+        gvt_path = True
+        for i in range(len(self.boundary_conditions['vut_speed'])):
+            vut_speed = np.isclose(self.boundary_conditions['vut_speed'][i], self._vut_speed+0.5/3.6, atol=0.5/3.6) and vut_speed
+            gvt_speed = np.isclose(self.boundary_conditions['gvt_speed'][i], self._gvt_speed, atol=1/3.6) and gvt_speed
+            vut_path = np.isclose(self.boundary_conditions['vut_x'][i], self._vut_position[0], atol=0.05) and vut_path
+            gvt_path = np.isclose(self.boundary_conditions['gvt_x'][i], self._gvt_position[0], atol=0.1) and gvt_path
+
+            # TODO add others boundary conditions
+            # TODO investigate why both vut and gvt x positions are circa -0.32
+
+        if not vut_speed:
+            print('VUT speed boundary condition not respected')
+        if not gvt_speed:
+            print('GVT speed boundary condition not respected')
+        if not vut_path:
+            print('VUT deviation from path boundary condition not respected')
+        if not gvt_path:
+            print('GVT deviation from path boundary condition not respected')
 
     def _get_distance(self):
         """
@@ -621,9 +655,8 @@ class CCRScenario(CCScenario):
         Returns:
             score (int): final score of the test.
         """
-        vut_speed = sensors['vut']['electrics']['wheelspeed']*3.6
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']*3.6
-        impact_relative_speed = vut_speed - gvt_speed
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
+        impact_relative_speed = (vut_speed - gvt_speed)*3.6
         color_scheme = self._get_color_scheme()
         score = 0
 
