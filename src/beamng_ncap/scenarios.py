@@ -218,6 +218,17 @@ class CCScenario(NCAPScenario):
         self._gvt_rotation = gvt_rotation
         self._gvt_waypoint = gvt_waypoint
 
+        self.boundary_conditions = {'vut_speed': [],
+                                    'gvt_speed': [],
+                                    'vut_x': [],
+                                    'vut_y': [],
+                                    'gvt_x': [],
+                                    'gvt_y': [],
+                                    'relative_distance': [],
+                                    'vut_yaw_velocity': [],
+                                    'gvt_yaw_velocity': [],
+                                    'vut_steering': []}
+
     def _teleport_vehicle(self, vehicle: Vehicle, position: Pos,
                           rotation: Quat | None = None):
         """
@@ -336,6 +347,10 @@ class CCScenario(NCAPScenario):
         return 0
 
     def _countdown(self, seconds: int):
+        """
+        Pause the game to notify to the players through gui messages that
+        they can take control of the car.
+        """
         self.bng.pause()
         self.bng.display_gui_message('When the game restarts you can take '
                                      + 'control of the car pressing SPACE')
@@ -346,6 +361,26 @@ class CCScenario(NCAPScenario):
             time.sleep(1)
         self.bng.display_gui_message(f'Go!')
         self.bng.resume()
+
+    def _update_boundary_conditions_dict(self) -> None:
+        """
+        Update the self.boundary_conditions dictionary with the last data.
+        """
+        # TODO add yaw velocity, new Advanced_IMU needed
+        sensors = self._observe()
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
+        vut_x = self.vut.state['pos'][0]
+        vut_y = self.vut.state['pos'][1]
+        gvt_x = self.gvt.state['pos'][0]
+        gvt_y = self.gvt.state['pos'][1]
+        vut_steering = sensors['vut']['electrics']['steering']
+        self.boundary_conditions['vut_speed'].append(vut_speed)
+        self.boundary_conditions['gvt_speed'].append(gvt_speed)
+        self.boundary_conditions['vut_x'].append(vut_x)
+        self.boundary_conditions['vut_y'].append(vut_y)
+        self.boundary_conditions['gvt_x'].append(gvt_x)
+        self.boundary_conditions['gvt_y'].append(gvt_y)
+        self.boundary_conditions['vut_steering'].append(vut_steering)
 
 
 class CCRScenario(CCScenario):
@@ -411,16 +446,6 @@ class CCRScenario(CCScenario):
         exit_condition1 = False
         exit_condition2 = False
         exit_condition3 = False
-        self.boundary_conditions = {'vut_speed': [],
-                                    'gvt_speed': [],
-                                    'vut_x': [],
-                                    'vut_y': [],
-                                    'gvt_x': [],
-                                    'gvt_y': [],
-                                    'relative_distance': [],
-                                    'vut_yaw_velocity': [],
-                                    'gvt_yaw_velocity': [],
-                                    'vut_steering': []}
 
         if control_mode == 'user':
             self._countdown(3)
@@ -437,20 +462,7 @@ class CCRScenario(CCScenario):
                 elif not ai_disabled:
                     # need 1 step to compute precisely the impact speed
                     self.step(1)
-                    sensors = self._observe()
-                    vut_speed, gvt_speed = self._get_speeds(poll=False)
-                    vut_x = self.vut.state['pos'][0]
-                    vut_y = self.vut.state['pos'][1]
-                    gvt_x = self.gvt.state['pos'][0]
-                    gvt_y = self.gvt.state['pos'][1]
-                    vut_steering = sensors['vut']['electrics']['steering']
-                    self.boundary_conditions['vut_speed'].append(vut_speed)
-                    self.boundary_conditions['gvt_speed'].append(gvt_speed)
-                    self.boundary_conditions['vut_x'].append(vut_x)
-                    self.boundary_conditions['vut_y'].append(vut_y)
-                    self.boundary_conditions['gvt_x'].append(gvt_x)
-                    self.boundary_conditions['gvt_y'].append(gvt_y)
-                    self.boundary_conditions['vut_steering'].append(vut_steering)
+                    self._update_boundary_conditions_dict()
 
                 sensors = self._observe()
                 vut_speed, gvt_speed = self._get_speeds()
@@ -510,15 +522,16 @@ class CCRScenario(CCScenario):
         gvt_speed = True
         vut_path = True
         gvt_path = True
+        steer_speed = True
         for i in range(len(self.boundary_conditions['vut_speed'])):
             vut_speed = np.isclose(self.boundary_conditions['vut_speed'][i], self._vut_speed+0.5/3.6, atol=0.5/3.6) and vut_speed
             gvt_speed = np.isclose(self.boundary_conditions['gvt_speed'][i], self._gvt_speed, atol=1/3.6) and gvt_speed
-            vut_path = np.isclose(self.boundary_conditions['vut_x'][i], self._vut_position[0], atol=0.05) and vut_path
-            gvt_path = np.isclose(self.boundary_conditions['gvt_x'][i], self._gvt_position[0], atol=0.1) and gvt_path
-
-            # TODO add others boundary conditions
+            vut_path = np.isclose(self.boundary_conditions['vut_x'][i], self._vut_position[0]-0.32, atol=0.05) and vut_path
+            gvt_path = np.isclose(self.boundary_conditions['gvt_x'][i], self._gvt_position[0]-0.32, atol=0.1) and gvt_path
             # TODO investigate why both vut and gvt x positions are circa -0.32
-
+            steer_speed = np.isclose(self.boundary_conditions['vut_steering'][i]/0.01, 0, atol=15) and steer_speed
+            # TODO add yaw velocity check
+            
         if not vut_speed:
             print('VUT speed boundary condition not respected')
         if not gvt_speed:
@@ -527,6 +540,8 @@ class CCRScenario(CCScenario):
             print('VUT deviation from path boundary condition not respected')
         if not gvt_path:
             print('GVT deviation from path boundary condition not respected')
+        if not steer_speed:
+            print('VUT steering wheel velocity boundary condition not respected')
 
     def _get_distance(self):
         """
