@@ -15,6 +15,7 @@ References:
 
 .. moduleauthor:: Sedonas <https://github.com/Sedonas>
 .. moduleauthor:: Marc Müller <mmueller@beamng.gmbh>
+.. moduleauthor:: Mattia Vicari <mvicari@beamng.gmbh>
 """
 
 from abc import ABC, abstractmethod
@@ -137,7 +138,6 @@ class NCAPScenario(ABC):
                  vut_rotation: Quat, vut_waypoint: str):
         self.bng = bng
         self.vut: Vehicle = bng.scenario.get_vehicle('vut')
-        # self.vut.set_shift_mode('realistic_automatic')
         self._vut_speed = vut_speed / 3.6
         self._vut_position = vut_position
         self._vut_rotation = vut_rotation
@@ -212,12 +212,22 @@ class CCScenario(NCAPScenario):
         # TODO: investigate how to get the AI to do that without this hack
 
         self.gvt: Vehicle = bng.scenario.get_vehicle('gvt')
-        # self.gvt.set_shift_mode('realistic_automatic')
         self._gvt_speed = gvt_speed / 3.6
         self._gvt_speed_ai = (gvt_speed + 3.6) / 3.6
         self._gvt_position = gvt_position
         self._gvt_rotation = gvt_rotation
         self._gvt_waypoint = gvt_waypoint
+
+        self.bc = {'vut_speed': [],
+                   'gvt_speed': [],
+                   'vut_x': [],
+                   'vut_y': [],
+                   'gvt_x': [],
+                   'gvt_y': [],
+                   'relative_distance': [],
+                   'vut_yaw_velocity': [],
+                   'gvt_yaw_velocity': [],
+                   'vut_steering': []}
 
     def _teleport_vehicle(self, vehicle: Vehicle, position: Pos,
                           rotation: Quat | None = None):
@@ -267,19 +277,39 @@ class CCScenario(NCAPScenario):
 
         return observation
 
+    def _get_speeds(self, poll=True) -> tuple[float, float]:
+        """
+        Returns the velocities of the vut and gvt vehicles from
+        the state attribute.
+        Args:
+            poll (bool): if true re-poll data.
+        Returns:
+            vut_speed (float): vut_speed in m/s.
+            gvt_speed (float): gvt_speed in m/s.
+        """
+        if poll:
+            self.vut.poll_sensors()
+            self.gvt.poll_sensors()
+
+        vut_speed = np.sqrt((self.vut.state['vel'][0])**2
+                            + (self.vut.state['vel'][1])**2
+                            + (self.vut.state['vel'][2])**2)
+        gvt_speed = np.sqrt((self.gvt.state['vel'][0])**2
+                            + (self.gvt.state['vel'][1])**2
+                            + (self.gvt.state['vel'][2])**2)
+
+        return vut_speed, gvt_speed
+
     def _accelerate_cars(self):
         """
         Accelerates the VUT and GVT to the desired speed.
         """
-        vut_speed = 0
-        gvt_speed = 0
+        vut_s = 0
+        gvt_s = 0
 
-        # TODO add also ttc check
-        while not self._cars_reached_speed(vut_speed, gvt_speed):
+        while not self._cars_reached_speed(vut_s, gvt_s) or self._ttc() > 4:
             self.bng.step(10)
-            observation = self._observe()
-            vut_speed = observation['vut']['electrics']['wheelspeed']
-            gvt_speed = observation['gvt']['electrics']['wheelspeed']
+            vut_s, gvt_s = self._get_speeds()
 
     def _cars_reached_speed(self, vut_speed: float, gvt_speed: float):
         """
@@ -306,19 +336,22 @@ class CCScenario(NCAPScenario):
             See [1], page 21, section 8.4.3
         """
         vut_dmg = sensors['vut']['damage']['damage']
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
         gvt_dmg = sensors['gvt']['damage']['damage']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
 
         if vut_dmg != 0 or gvt_dmg != 0:
             return -1
 
-        if np.isclose(vut_speed, 0, atol=1e-2) or vut_speed < gvt_speed:
+        if np.isclose(vut_speed, 0, atol=1e-1) or vut_speed < gvt_speed:
             return 1
 
         return 0
 
     def _countdown(self, seconds: int):
+        """
+        Pause the game to notify to the players through gui messages that
+        they can take control of the car.
+        """
         self.bng.pause()
         self.bng.display_gui_message('When the game restarts you can take '
                                      + 'control of the car pressing SPACE')
@@ -329,6 +362,26 @@ class CCScenario(NCAPScenario):
             time.sleep(1)
         self.bng.display_gui_message(f'Go!')
         self.bng.resume()
+
+    def _update_boundary_conditions_dict(self) -> None:
+        """
+        Update the self.bc dictionary with the last data.
+        """
+        # TODO add yaw velocity, new Advanced_IMU needed
+        sensors = self._observe()
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
+        vut_x = self.vut.state['pos'][0]
+        vut_y = self.vut.state['pos'][1]
+        gvt_x = self.gvt.state['pos'][0]
+        gvt_y = self.gvt.state['pos'][1]
+        vut_steering = sensors['vut']['electrics']['steering']
+        self.bc['vut_speed'].append(vut_speed)
+        self.bc['gvt_speed'].append(gvt_speed)
+        self.bc['vut_x'].append(vut_x)
+        self.bc['vut_y'].append(vut_y)
+        self.bc['gvt_x'].append(gvt_x)
+        self.bc['gvt_y'].append(gvt_y)
+        self.bc['vut_steering'].append(vut_steering)
 
 
 class CCRScenario(CCScenario):
@@ -408,17 +461,15 @@ class CCRScenario(CCScenario):
                     self.bng.resume()
                     ai_disabled = True
                 elif not ai_disabled:
-                    # need 1 step to compute precisely the impact speed
-                    self.step(1)
+                    self.step(10)
+                    self._update_boundary_conditions_dict()
 
                 sensors = self._observe()
-
+                vut_speed, gvt_speed = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
-                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
-                if np.isclose(vut_speed, 0, atol=1e-2):
+                if np.isclose(vut_speed, 0, atol=1e-1):
                     exit_condition1 = True
                     self.bng.pause()
                 elif vut_speed < gvt_speed:
@@ -445,11 +496,9 @@ class CCRScenario(CCScenario):
                                      brake=brake)
 
                 sensors = self._observe()
-
+                vut_speed, gvt_speed = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
-                gvt_speed = sensors['gvt']['electrics']['wheelspeed']
 
                 if np.isclose(vut_speed, 0, atol=1e-2):
                     exit_condition1 = True
@@ -458,10 +507,53 @@ class CCRScenario(CCScenario):
                 elif vut_dmg or gvt_dmg:
                     exit_condition3
 
+        self._check_boundary_conditions()
         score = self.get_score(sensors)
         state = self.get_state(sensors)
 
         return state, score
+
+    def _check_boundary_conditions(self) -> None:
+        """
+        Check if all the bounday conditions described in [1]
+        section 8.4.2 pag 20 are met.
+        Print only if one or more conditions aren't respected.
+        """
+        vut_speed = True
+        gvt_speed = True
+        vut_path = True
+        gvt_path = True
+        steer_speed = True
+        for i in range(len(self.bc['vut_speed']) - 1):
+            vut_speed = np.isclose(self.bc['vut_speed'][i],
+                                   self._vut_speed + 0.5/3.6,
+                                   atol=0.5/3.6) and vut_speed
+            gvt_speed = np.isclose(self.bc['gvt_speed'][i],
+                                   self._gvt_speed,
+                                   atol=1/3.6) and gvt_speed
+            vut_path = np.isclose(self.bc['vut_x'][i],
+                                  self._vut_position[0] - 0.32,
+                                  atol=0.05) and vut_path
+            gvt_path = np.isclose(self.bc['gvt_x'][i],
+                                  self._gvt_position[0] - 0.32,
+                                  atol=0.1) and gvt_path
+            # TODO investigate why both vut and gvt x positions are circa -0.32
+            steer_speed = np.isclose((self.bc['vut_steering'][i + 1]
+                                      - self.bc['vut_steering'][i])/0.1,
+                                     0,
+                                     atol=15) and steer_speed
+            # TODO add yaw velocity check
+
+        if not vut_speed:
+            print('VUT speed not compliant')
+        if not gvt_speed:
+            print('GVT speed not compliant')
+        if not vut_path:
+            print('VUT path not compliant')
+        if not gvt_path:
+            print('GVT path boundary not compliant')
+        if not steer_speed:
+            print('VUT steering wheel velocity not compliant')
 
     def _get_distance(self):
         """
@@ -481,6 +573,19 @@ class CCRScenario(CCScenario):
 
         return np.linalg.norm(np.cross(vut_c - gvt_p, gvt_dv)) / \
             np.linalg.norm(gvt_dv)
+
+    def _ttc(self):
+        """
+        Evaluate the time to collision
+        Returns:
+            ttc (float): time to collision in seconds.
+        """
+        distance = self._get_distance()
+        vut_speed, gvt_speed = self._get_speeds()
+        relative_speed = vut_speed - gvt_speed
+        relative_speed = 1 if relative_speed == 0 else relative_speed
+
+        return distance/relative_speed
 
     def step(self, steps):
         """
@@ -574,9 +679,8 @@ class CCRScenario(CCScenario):
         Returns:
             score (int): final score of the test.
         """
-        vut_speed = sensors['vut']['electrics']['wheelspeed']*3.6
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']*3.6
-        impact_relative_speed = vut_speed - gvt_speed
+        vut_speed, gvt_speed = self._get_speeds(poll=False)
+        impact_relative_speed = (vut_speed - gvt_speed)*3.6
         color_scheme = self._get_color_scheme()
         score = 0
 
@@ -751,6 +855,19 @@ class CCRB(CCRScenario):
         self._decelerating = False
         super().reset()
 
+    def _accelerate_cars(self):
+        """
+        Accelerates the VUT and GVT to the desired speed.
+        """
+        vut_speed = 0
+        gvt_speed = 0
+
+        while not self._cars_reached_speed(vut_speed, gvt_speed):
+            self.bng.step(10)
+            observation = self._observe()
+            vut_speed = observation['vut']['electrics']['wheelspeed']
+            gvt_speed = observation['gvt']['electrics']['wheelspeed']
+
     def step(self, steps):
         """
         Advances the scenario the given amount of steps.
@@ -763,7 +880,6 @@ class CCRB(CCRScenario):
             self.gvt.ai_set_mode('disabled')
             self._decelerating = True
 
-        # TODO add check of real deceleration
         if self._decelerating and not self._stationary:
             sensors = self._observe()
             gvt_acc = sensors['gvt']['electrics']['accYSmooth']
@@ -843,13 +959,35 @@ class CCFScenario(CCScenario):
         """
         Make the AIs follow the given trajectories until ttc is <= 4.
         """
-        vut_script = self._define_vut_trajectory()
-        gvt_script = self._define_gvt_trajectory()
-        self.vut.ai_set_script(vut_script)
-        self.gvt.ai_set_script(gvt_script)
+        self.vut_script = self._define_vut_trajectory()
+        self.gvt_script = self._define_gvt_trajectory()
+        self.vut.ai_set_script(self.vut_script)
+        self.gvt.ai_set_script(self.gvt_script)
 
         while self._ttc() > 4:
             self.bng.step(10)
+
+    def _define_vut_trajectory(self, debug: bool = False) -> list:
+        """
+        Define the trajectory for the vut vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary
+                           with the fields: 'x', 'y', 'z' amnd 't'.
+        """
+        return []
+
+    def _define_gvt_trajectory(self, debug: bool = False) -> list:
+        """
+        Define the trajectory for the gvt vehicle
+        Args:
+            debug (bool): if `True` display the trajectory.
+        Returns:
+            script (list): list containing the nodes described as dictionary
+                           with the fields: 'x', 'y', 'z' amnd 't'.
+        """
+        return []
 
     def _ttc(self) -> float:
         """
@@ -871,9 +1009,7 @@ class CCFScenario(CCScenario):
 
         distance = np.linalg.norm(vut_c - gvt_c)
 
-        sensors = self._observe()
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        vut_speed, gvt_speed = self._get_speeds()
         relative_speed = vut_speed + gvt_speed
         relative_speed = 1 if relative_speed == 0 else relative_speed
 
@@ -925,10 +1061,11 @@ class CCFScenario(CCScenario):
                     ai_disabled = True
                 elif not ai_disabled:
                     self.step(10)
+                    self._update_boundary_conditions_dict()
 
                 sensors = self._observe()
+                vut_speed, _ = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
 
                 if np.isclose(vut_speed, 0, atol=1e-2):
@@ -938,10 +1075,63 @@ class CCFScenario(CCScenario):
                     exit_condition3 = True
                     self.bng.pause()
 
+        self._check_boundary_conditions()
         state = self.get_state(sensors)
         score = self.get_score(state)
 
         return state, score
+
+    def _check_boundary_conditions(self) -> None:
+        """
+        Check if all the bounday conditions described in [1]
+        section 8.4.2 pag 20 are met.
+        Print only if one or more conditions aren't respected.
+        """
+        vut_speed = True
+        gvt_speed = True
+        vut_path = True
+        gvt_path = True
+        steer_speed = True
+
+        vut_path_x = []
+        vut_path_y = []
+
+        for node in self.vut_script:
+            vut_path_x.insert(0, node['x'])
+            vut_path_y.insert(0, node['y'])
+
+        for i in range(len(self.bc['vut_speed']) - 1):
+            vut_speed = np.isclose(self.bc['vut_speed'][i],
+                                   self._vut_speed + 0.5/3.6,
+                                   atol=0.5/3.6) and vut_speed
+            gvt_speed = np.isclose(self.bc['gvt_speed'][i],
+                                   self._gvt_speed,
+                                   atol=1/3.6) and gvt_speed
+            vut_path = np.isclose(self.bc['vut_x'][i],
+                                  np.interp(self.bc['vut_y'][i],
+                                            vut_path_y,
+                                            vut_path_x)
+                                  - 0.32,
+                                  atol=0.05) and vut_path
+            gvt_path = np.isclose(self.bc['gvt_x'][i],
+                                  self._gvt_position[0] + 0.32,
+                                  atol=0.1) and gvt_path
+            steer_speed = np.isclose((self.bc['vut_steering'][i + 1]
+                                      - self.bc['vut_steering'][i])/0.1,
+                                     0,
+                                     atol=15) and steer_speed
+            # TODO add yaw velocity check
+
+        if not vut_speed:
+            print('VUT speed not compliant')
+        if not gvt_speed:
+            print('GVT speed not compliant')
+        if not vut_path:
+            print('VUT path not compliant')
+        if not gvt_path:
+            print('GVT path boundary not compliant')
+        if not steer_speed:
+            print('VUT steering wheel velocity not compliant')
 
     def step(self, steps):
         """
@@ -974,7 +1164,7 @@ class CCFTAP(CCFScenario):
         assert gvt_speed in [30, 45, 55]
 
         # TODO better trajectories synchronisation needed
-        self._vut_start_y = 40
+        self._vut_start_y = 80
         self._gvt_start_y = - int((self._vut_start_y
                                    - (gvt_speed - vut_speed)
                                    * vut_speed / gvt_speed)
@@ -1010,6 +1200,7 @@ class CCFTAP(CCFScenario):
         y_clothoid = []
 
         for i in range(int(L)):
+            # approximation from https://pwayblog.com/2016/07/03/the-clothoid/
             x_clothoid.append(i - i**5/(40*(r2*L)**2)
                               + i**9/(3465*(r2*L)**4)
                               - i**13/(599040*(r2*L)**6))
@@ -1050,12 +1241,13 @@ class CCFTAP(CCFScenario):
             elif y < y_clothoid1 and y > y_constant_radius:
                 if clothoid_index1 == 0:
                     start_y = script[-1]['y']
+
                 delta_y = script[-1]['y'] - (start_y
-                                             - x_clothoid[clothoid_index1])
+                                             - x_clothoid[clothoid_index1 + 1])
                 y -= delta_y
                 node = {'x': self._vut_position[0]
                         + y_clothoid[clothoid_index1],
-                        'y': start_y - x_clothoid[clothoid_index1],
+                        'y': start_y - x_clothoid[clothoid_index1 + 1],
                         'z': 0.21,
                         't': t}
                 script.append(node)
@@ -1141,7 +1333,7 @@ class CCFTAP(CCFScenario):
 
         for y in range(self._gvt_position[1], 1000):
             i += 1
-            t = i/self._gvt_speed
+            t = i/(self._gvt_speed - 0.35)
             node = {'x': self._gvt_position[0],
                     'y': y,
                     'z': 0.21,
