@@ -1108,7 +1108,9 @@ class CCFScenario(CCScenario):
                                    self._gvt_speed,
                                    atol=1/3.6) and gvt_speed
             vut_path = np.isclose(self.bc['vut_x'][i],
-                                  np.interp(self.bc['vut_y'][i], vut_path_y, vut_path_x)
+                                  np.interp(self.bc['vut_y'][i],
+                                            vut_path_y,
+                                            vut_path_x)
                                   - 0.32,
                                   atol=0.05) and vut_path
             gvt_path = np.isclose(self.bc['gvt_x'][i],
