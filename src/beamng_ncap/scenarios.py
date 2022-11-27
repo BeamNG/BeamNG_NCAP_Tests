@@ -581,9 +581,7 @@ class CCRScenario(CCScenario):
             ttc (float): time to collision in seconds.
         """
         distance = self._get_distance()
-        sensors = self._observe()
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        vut_speed, gvt_speed = self._get_speeds()
         relative_speed = vut_speed - gvt_speed
         relative_speed = 1 if relative_speed == 0 else relative_speed
 
@@ -1011,9 +1009,7 @@ class CCFScenario(CCScenario):
 
         distance = np.linalg.norm(vut_c - gvt_c)
 
-        sensors = self._observe()
-        vut_speed = sensors['vut']['electrics']['wheelspeed']
-        gvt_speed = sensors['gvt']['electrics']['wheelspeed']
+        vut_speed, gvt_speed = self._get_speeds()
         relative_speed = vut_speed + gvt_speed
         relative_speed = 1 if relative_speed == 0 else relative_speed
 
@@ -1068,8 +1064,8 @@ class CCFScenario(CCScenario):
                     self._update_boundary_conditions_dict()
 
                 sensors = self._observe()
+                vut_speed, _ = self._get_speeds()
                 vut_dmg = sensors['vut']['damage']['damage']
-                vut_speed = sensors['vut']['electrics']['wheelspeed']
                 gvt_dmg = sensors['gvt']['damage']['damage']
 
                 if np.isclose(vut_speed, 0, atol=1e-2):
