@@ -1,14 +1,14 @@
-# BeamNG.drive NCAP Tests
+# BeamNG.tech NCAP Tests
 
 ## Introduction
 
 This project implements some of the [Euro NCAP][1] testing scenarios for
-automated vehicle systems in [BeamNG.drive][2] using the official
+automated vehicle systems in [BeamNG.tech][2] using the official
 [BeamNG Python API][3]. Currently, only a handful of scenarios are implemented,
 but more will be added in the future.
 
 [1]: https://www.euroncap.com/en
-[2]: https://www.beamng.com/
+[2]: https://beamng.tech/
 [3]: https://github.com/BeamNG/BeamNGpy
 
 ## Usage Example
@@ -40,5 +40,5 @@ with beamng as bng:
 ```
 
 The NCAP scenarios are implemented to fit into user-defined vehicle setups. As
-such you can define your own BeamNG.drive scenario to run the NCAP test in and
+such you can define your own BeamNG.tech scenario to run the NCAP test in and
 attach your own senor models to the vehicle being tested.
