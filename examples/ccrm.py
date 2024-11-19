@@ -2,7 +2,7 @@ from beamngpy import BeamNGpy
 from beamng_ncap.scenarios import CCRM, generate_scenario
 
 if __name__ == '__main__':
-    beamng = BeamNGpy('localhost', 64256)
+    beamng = BeamNGpy('localhost', 25252)
     beamng.open()
     scenario = generate_scenario('etk800', 'etk800')
     scenario.make(beamng)
