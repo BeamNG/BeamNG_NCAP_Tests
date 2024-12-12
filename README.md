@@ -20,7 +20,7 @@ the `beamng_ncap.scenarios` module. They can be executed as such:
 from beamngpy import BeamNGpy
 from beamng_ncap.scenarios import CCRS, generate_scenario
 
-beamng = BeamNGpy('localhost', 25252, home='/path/to/beamng/research/')
+beamng = BeamNGpy('localhost', 25252, home='/path/to/bng/tech', user='/path/to/bng/tech/userfolder')
 with beamng as bng:
     scenario = generate_scenario('etk800', 'etk800')
     scenario.make(bng)
