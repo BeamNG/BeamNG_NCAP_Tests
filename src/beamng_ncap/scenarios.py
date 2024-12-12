@@ -19,8 +19,7 @@ References:
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
-
+from typing import Dict, List, Tuple, Union
 import time
 import numpy as np
 import keyboard
@@ -229,8 +228,9 @@ class CCScenario(NCAPScenario):
                    'gvt_yaw_velocity': [],
                    'vut_steering': []}
 
-    def _teleport_vehicle(self, vehicle: Vehicle, position: Pos,
-                          rotation: Quat | None = None):
+
+    def _teleport_vehicle(self, vehicle: Vehicle, position: Pos, 
+                          rotation: Union[Quat, None] = None):
         """
         Teleports the given vehicle to the given position with the given
         rotation.
@@ -277,7 +277,7 @@ class CCScenario(NCAPScenario):
 
         return observation
 
-    def _get_speeds(self, poll=True) -> tuple[float, float]:
+    def _get_speeds(self, poll=True) -> Tuple[float, float]:
         """
         Returns the velocities of the vut and gvt vehicles from
         the state attribute.
@@ -1181,19 +1181,19 @@ class CCFTAP(CCFScenario):
             script (list): list containing the nodes described as dictionary
                            with the fields: 'x', 'y', 'z' amnd 't'.
         """
-        match self._vut_speed*3.6:
-            case 10:
-                alpha = np.deg2rad(20.62)
-                beta = np.deg2rad(48.76)
-                r2 = 9
-            case 15:
-                alpha = np.deg2rad(20.93)
-                beta = np.deg2rad(48.14)
-                r2 = 11.75
-            case 20:
-                alpha = np.deg2rad(21.79)
-                beta = np.deg2rad(46.42)
-                r2 = 14.75
+        if self._vut_speed * 3.6 == 10:
+            alpha = np.deg2rad(20.62)
+            beta = np.deg2rad(48.76)
+            r2 = 9
+        elif self._vut_speed * 3.6 == 15:
+            alpha = np.deg2rad(20.93)
+            beta = np.deg2rad(48.14)
+            r2 = 11.75
+        elif self._vut_speed * 3.6 == 20:
+            alpha = np.deg2rad(21.79)
+            beta = np.deg2rad(46.42)
+            r2 = 14.75
+
 
         L = 2*alpha*r2
         x_clothoid = []
