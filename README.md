@@ -1,7 +1,7 @@
 # BeamNG.tech NCAP Tests
 
 ## Introduction
-
+  
 This project implements some of the [Euro NCAP][1] testing scenarios for
 automated vehicle systems in [BeamNG.tech][2] using the official
 [BeamNG Python API][3]. Currently, only a handful of scenarios are implemented,
