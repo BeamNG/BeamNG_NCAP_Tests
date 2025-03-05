@@ -11,6 +11,14 @@ but more will be added in the future.
 [2]: https://beamng.tech/
 [3]: https://github.com/BeamNG/BeamNGpy
 
+
+## Installation 
+- To install the project requirements, run the following command:
+`pip install -r requirements.txt`
+- To install the project as a package, run the following command:
+`pip install -e .`
+
+
 ## Usage Example
 
 After installing the library, the scenarios become available in
