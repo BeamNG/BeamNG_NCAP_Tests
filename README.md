@@ -18,6 +18,18 @@ but more will be added in the future.
 - To install the project as a package, run the following command:
 `pip install -e .`
 
+## Compatibility 
+
+This version of the tool works with BeamNG.tech and BeamNGpy. Table of compatibility of different versions of BeamNG_NCAP_Tests is here:
+
+| BeamNG_NCAP_Tests version                                    | BeamNG.tech version | BeamNGpy version                                          |
+| ------------------------------------------------------------ | ------------------- | --------------------------------------------------------- |
+| [0.2](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2) | 0.35.5              | [1.32.0](https://github.com/BeamNG/BeamNGpy/tree/v1.32)   |
+| [0.1](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.1) | 0.34                | [1.31.0](https://github.com/BeamNG/BeamNGpy/tree/v1.31)   |
+
+Other versions of BeamNG.tech and BeamNGpy will not work with this version.
+
+
 
 ## Usage Example
 
