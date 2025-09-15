@@ -13,6 +13,8 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
+    print('Euro NCAP AEB Car-to-Car Front Turn Across Path (CCFTAP) Test')
+    
     test = CCFTAP(beamng, 20, 55)
     sensors = test.load()
     test_state, test_score = test.execute('user')

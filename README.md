@@ -8,6 +8,26 @@ automated vehicle systems in [BeamNG.tech][2] using the official
 but more will be added in the future.Currently, several Car-to-Car Rear (CCR) scenarios from the official Euro NCAP 
 AEB test suite are implemented, with more scenarios planned for future releases.
 
+## File Structure
+
+```
+├── src/
+│   ├── AEB_test_template.ipynb    # Main test notebook
+│   └── beamng_ncap/
+│       ├── __init__.py
+│       ├── scenarios.py           # Core scenario implementations
+│       └── controllers.py         # PID and trial controllers
+├── examples/
+│   ├── ccrs.py                    # CCRs test example
+│   ├── ccrm.py                    # CCRm test example
+│   ├── ccrb.py                    # CCRb test example
+│   └── ccftap.py                  # CCFTAP test 
+|
+├── setup.py                       # Package 
+├── requirements.txt               # Dependencies
+├── README.md                      
+```
+
 
 ## Implemented Scenarios
 
@@ -41,7 +61,8 @@ This version of the tool works with BeamNG.tech and BeamNGpy. Table of compatibi
 
 | BeamNG_NCAP_Tests version                                    | BeamNG.tech version   | BeamNGpy version                                          |
 | ------------------------------------------------------------ | --------------------- | --------------------------------------------------------- |
-| [0.2.1](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.3) | 0.36                | [1.33.0](https://github.com/BeamNG/BeamNGpy/tree/v1.33)   |
+| [0.3.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.3.0) | 0.36                | [1.33.0](https://github.com/BeamNG/BeamNGpy/tree/v1.33)   |
+| [0.2.1](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2.1) | 0.36                | [1.34.0](https://github.com/BeamNG/BeamNGpy/tree/v1.34)   |
 | [0.2.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2) | 0.35.5              | [1.32.0](https://github.com/BeamNG/BeamNGpy/tree/v1.32)   |
 | [0.1.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.1) | 0.34                | [1.31.0](https://github.com/BeamNG/BeamNGpy/tree/v1.31)   |
 

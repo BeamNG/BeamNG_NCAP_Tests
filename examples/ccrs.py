@@ -20,7 +20,10 @@ if __name__ == '__main__':
     test = CCRS(beamng, vut_speed, overlap=overlap)
 
     sensors = test.load()
-    test_state, test_score = test.execute('user')
+    
+    print(f"Running test with VUT speed: {vut_speed} km/h")
+    print("Using TRIAL mode for automated testing...")
+    test_state, test_score = test.execute('trial')
 
     if test_state == 1:
         print('Test passed successfully')

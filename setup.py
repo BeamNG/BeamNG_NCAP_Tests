@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='beamng_ncap',
-    version='0.0.1',
+    version='0.3.0',
     description='Recreation of Euro NCAP testing scenarios in BeamNG.tech',
     author='BeamNG GmbH',
     author_email='tech@beamng.gmbh',
@@ -11,5 +11,6 @@ setup(
     install_requires=[
         'numpy',
         'beamngpy',
+        'keyboard',
     ]
 )

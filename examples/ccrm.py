@@ -13,12 +13,15 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
-    print('Car-to-Car Rear moving scenario')
+    print('Euro NCAP AEB Car-to-Car Rear Moving (CCRm) Test')
     overlap = 100  # -75, -50, 50, 75 or 100 %
     vut_speed = 80  # 10, 15, 20, 25, 30, 35, 40, 45 or 50 km/h
     test = CCRM(beamng, vut_speed, overlap=100)
     sensors = test.load()
-    test_state, test_score = test.execute('user')
+    
+    print(f"Running test with VUT speed: {vut_speed} km/h")
+    print("Using TRIAL mode for automated testing...")
+    test_state, test_score = test.execute('trial')
 
     if test_state == 1:
         print('Test passed successfully')

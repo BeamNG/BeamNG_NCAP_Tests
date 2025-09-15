@@ -13,14 +13,17 @@ if __name__ == '__main__':
     beamng.pause()
     beamng.start_scenario()
 
-    print('Car-to-Car Rear braking scenario')
+    print('Euro NCAP AEB Car-to-Car Rear Braking (CCRb) Test')
     deceleration = -6  # -2, -6
     distance = 12  # 12, 40
     overlap = 100  # -75, -50, 50, 75 or 100 %
     test = CCRB(beamng, deceleration, distance, overlap)
 
     sensors = test.load()
-    test_state = test.execute('trial')
+    
+    print(f"Running test with deceleration: {deceleration} m/s², distance: {distance} m")
+    print("Using TRIAL mode for automated testing...")
+    test_state, test_score = test.execute('trial')
 
     if test_state == 1:
         print('Test passed successfully')
