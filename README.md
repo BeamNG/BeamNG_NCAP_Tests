@@ -59,12 +59,12 @@ The project currently includes the following standardized Euro NCAP ADAS test sc
 
 This version of the tool works with BeamNG.tech and BeamNGpy. Table of compatibility of different versions of BeamNG_NCAP_Tests is here:
 
-| BeamNG_NCAP_Tests version                                    | BeamNG.tech version   | BeamNGpy version                                          |
-| ------------------------------------------------------------ | --------------------- | --------------------------------------------------------- |
-| [0.3.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.3.0) | 0.36                | [1.33.0](https://github.com/BeamNG/BeamNGpy/tree/v1.33)   |
-| [0.2.1](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2.1) | 0.36                | [1.34.0](https://github.com/BeamNG/BeamNGpy/tree/v1.34)   |
-| [0.2.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2) | 0.35.5              | [1.32.0](https://github.com/BeamNG/BeamNGpy/tree/v1.32)   |
-| [0.1.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.1) | 0.34                | [1.31.0](https://github.com/BeamNG/BeamNGpy/tree/v1.31)   |
+| BeamNG_NCAP_Tests version                                           | BeamNG.tech version  | BeamNGpy version                                            |
+| ------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------- |
+| [0.3.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.3.0)    | 0.37                 | [1.34.1](https://github.com/BeamNG/BeamNGpy/tree/v1.34.1)   |
+| [0.2.1](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2.1)    | 0.36                 | [1.33.1](https://github.com/BeamNG/BeamNGpy/tree/v1.33.1)   |
+| [0.2.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.2)      | 0.35.5               | [1.32.0](https://github.com/BeamNG/BeamNGpy/tree/v1.32)     |
+| [0.1.0](https://github.com/BeamNG/BeamNG_NCAP_Tests/tree/v0.1)      | 0.34                 | [1.31.0](https://github.com/BeamNG/BeamNGpy/tree/v1.31)     |
 
 Other versions of BeamNG.tech and BeamNGpy will not work with this version.
 
